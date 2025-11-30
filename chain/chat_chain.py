@@ -19,6 +19,13 @@ from dotenv import load_dotenv
 # 加载环境变量
 load_dotenv()
 
+# 修复langchain版本兼容性问题
+try:
+    import langchain
+    langchain.verbose = False
+except (ImportError, AttributeError):
+    pass  # 如果langchain模块不存在或没有verbose属性，则忽略
+
 class ChatChain:
     def __init__(self):
         self.llm = None
