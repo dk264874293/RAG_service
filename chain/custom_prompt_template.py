@@ -2,18 +2,18 @@
 Author: 汪培良 rick_wang@yunquna.com
 Date: 2025-11-30 13:36:43
 LastEditors: 汪培良 rick_wang@yunquna.com
-LastEditTime: 2025-11-30 18:57:06
+LastEditTime: 2025-11-30 21:10:38
 FilePath: /RAG_service/chain/coustom_prompt_templature.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
 from langchain_core.prompts import StringPromptTemplate
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Dict , Optional
+from typing import List, Dict , Optional, Any
 import json
 from datetime import datetime
 
 class PersonInfo(BaseModel):
-    name: str = Field(..., description=="姓名")
+    name: str = Field(..., description="姓名")
     age: int = Field(...,ge=0,le = 100, description="年龄")
     occupation: str = Field(..., description="职业")
     skills: List[str] = Field(default_factory=list, description="技能列表")
@@ -44,8 +44,8 @@ class CustomPromptTemplate(StringPromptTemplate):
         """
         格式化提示模板
         """
-        person_info = kwargs.get["person_info"]
-        analysis_type = kwargs.get["analysis_type"]
+        person_info = kwargs.get("person_info")
+        analysis_type = kwargs.get("analysis_type")
 
         if not person_info:
             raise ValueError("person_info 不能为空")

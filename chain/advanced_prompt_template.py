@@ -2,18 +2,19 @@
 Author: 汪培良 rick_wang@yunquna.com
 Date: 2025-11-30 19:05:47
 LastEditors: 汪培良 rick_wang@yunquna.com
-LastEditTime: 2025-11-30 19:18:53
+LastEditTime: 2025-12-01 10:10:11
 FilePath: /RAG_service/chain/ext_template.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
+from chain.custom_prompt_template import CustomPromptTemplate, PersonInfo
 from optparse import Values
 from pydantic import BaseModel, Field, field_validator
 from typing import Dict, List, Any, Optional
 import json
 from datetime import datetime
-from coustom_prompt_templature import PersonInfoPromptTemplate
 
-class AdvancedPersonInfoPromptTemplate(PersonInfoPromptTemplate):
+
+class AdvancedPersonInfoPromptTemplate(CustomPromptTemplate):
     """
     高级人员信息提示模板类
     支持更多工程化功能
@@ -44,7 +45,7 @@ class AdvancedPersonInfoPromptTemplate(PersonInfoPromptTemplate):
         if self.output_language not in self.supported_languages:
             raise ValueError(f"output_language 参数无效，有效值包括：{self.supported_languages}")
 
-    def get_template_metadata(self) -> Dict(str,Any):
+    def get_template_metadata(self) -> Dict[str,Any]:
         """获取模版元数据"""
         return {
             "version": self.template_version,
