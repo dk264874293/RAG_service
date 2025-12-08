@@ -21,10 +21,10 @@ load_dotenv()
 
 # 修复langchain版本兼容性问题
 try:
-    import langchain
+    import langchain_classic as langchain
     langchain.verbose = False
 except (ImportError, AttributeError):
-    pass  # 如果langchain模块不存在或没有verbose属性，则忽略
+    pass  # 如果langchain_classic模块不存在或没有verbose属性，则忽略
 
 class ChatChain:
     def __init__(self):
