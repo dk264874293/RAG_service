@@ -100,72 +100,81 @@ async def run_team_stream() -> None:
     # 创建一个局部变量current_task，初始化为全局task
     current_task = task
     
-    while True:
-        print(f"执行任务: {current_task}")
-        # 运行团队并获取结果
-        result = await team.run(task=current_task)
-        print("获取到结果...")
-        
-        # 打印智能体的回复
-        if hasattr(result, 'messages') and result.messages:
-            print(f"消息数量: {len(result.messages)}")
-            for msg in result.messages:
-                print(f"消息来源: {msg.source}")
-                if hasattr(msg, 'target'):
-                    print(f"消息目标: {msg.target}")
-                print(f"消息类型: {type(msg).__name__}")
-                if hasattr(msg, 'content'):
-                    print(f"消息内容: {msg.content}")
+    try:
+        while True:
+            print(f"执行任务: {current_task}")
+            # 运行团队并获取结果
+            result = await team.run(task=current_task)
+            print("获取到结果...")
             
-            last_message = result.messages[-1]
-            if hasattr(last_message, 'content'):
-                print(f"最新消息: {last_message.source}: {last_message.content}")
-            
-            # 检查是否需要用户输入
-            need_user_input = False
-            
-            # 检查最新消息是否是HandoffMessage且目标是"user"
-            if isinstance(last_message, HandoffMessage) and last_message.target == "user":
-                need_user_input = True
-            
-            # 检查所有消息，看是否有请求用户信息的内容
-            for msg in result.messages:
-                if hasattr(msg, 'content'):
-                    # 确保content是字符串类型
-                    if isinstance(msg.content, str):
-                        content = msg.content.lower()
-                        if any(keyword in content for keyword in ["航班参考号", "需要您的", "请提供", "请输入", "请告知"]):
-                            need_user_input = True
-                            break
-                        if "transferred to user" in content:
-                            need_user_input = True
-                            break
-            
-            if need_user_input:
-                print("需要用户输入...")
-                # 等待用户输入
-                user_message = input("用户：")
-                print(f"用户输入: {user_message}")
+            # 打印智能体的回复
+            if hasattr(result, 'messages') and result.messages:
+                print(f"消息数量: {len(result.messages)}")
+                for msg in result.messages:
+                    print(f"消息来源: {msg.source}")
+                    if hasattr(msg, 'target'):
+                        print(f"消息目标: {msg.target}")
+                    print(f"消息类型: {type(msg).__name__}")
+                    if hasattr(msg, 'content'):
+                        print(f"消息内容: {msg.content}")
                 
-                # 检查是否需要终止
-                if user_message.strip().upper() == "TERMINATE":
+                last_message = result.messages[-1]
+                if hasattr(last_message, 'content'):
+                    print(f"最新消息: {last_message.source}: {last_message.content}")
+                
+                # 检查是否需要用户输入
+                need_user_input = False
+                
+                # 检查最新消息是否是HandoffMessage且目标是"user"
+                if isinstance(last_message, HandoffMessage) and last_message.target == "user":
+                    need_user_input = True
+                
+                # 检查所有消息，看是否有请求用户信息的内容
+                for msg in result.messages:
+                    if hasattr(msg, 'content'):
+                        # 确保content是字符串类型
+                        if isinstance(msg.content, str):
+                            content = msg.content.lower()
+                            if any(keyword in content for keyword in ["航班参考号", "需要您的", "请提供", "请输入", "请告知"]):
+                                need_user_input = True
+                                break
+                            if "transferred to user" in content:
+                                need_user_input = True
+                                break
+                
+                if need_user_input:
+                    print("需要用户输入...")
+                    # 等待用户输入
+                    user_message = input("用户：")
+                    print(f"用户输入: {user_message}")
+                    
+                    # 检查是否需要终止
+                    if user_message.strip().upper() == "TERMINATE":
+                        print("收到终止命令...")
+                        break
+                    
+                    # 创建一个新的HandoffMessage，目标是当前的智能体而不是"user"
+                    # 或者直接将用户输入作为消息内容发送
+                    current_task = HandoffMessage(
+                        content=user_message,
+                        source="user",
+                        target=last_message.source  # 将用户输入发送回刚才请求信息的智能体
+                    )
+                elif hasattr(last_message, 'content') and "TERMINATE" in last_message.content:
+                    # 如果收到终止命令，结束循环
                     print("收到终止命令...")
                     break
-                
-                # 创建一个新的HandoffMessage，目标是当前的智能体而不是"user"
-                # 或者直接将用户输入作为消息内容发送
-                current_task = HandoffMessage(
-                    content=user_message,
-                    source="user",
-                    target=last_message.source  # 将用户输入发送回刚才请求信息的智能体
-                )
-            elif hasattr(last_message, 'content') and "TERMINATE" in last_message.content:
-                # 如果收到终止命令，结束循环
-                print("收到终止命令...")
-                break
-            else:
-                # 否则，结束循环
-                break
+                else:
+                    # 否则，结束循环
+                    break
+    except asyncio.exceptions.CancelledError:
+        print("任务被取消，程序将优雅退出...")
+    except KeyboardInterrupt:
+        print("用户中断程序，程序将优雅退出...")
+    except Exception as e:
+        print(f"程序发生错误: {type(e).__name__}: {str(e)}")
+    finally:
+        print("程序结束")
 
 if __name__ == "__main__":
     asyncio.run(run_team_stream())
