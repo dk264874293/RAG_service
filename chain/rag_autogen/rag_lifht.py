@@ -2,7 +2,7 @@
 Author: 汪培良 rick_wang@yunquna.com
 Date: 2025-12-17 15:33:11
 LastEditors: 汪培良 rick_wang@yunquna.com
-LastEditTime: 2025-12-17 21:46:59
+LastEditTime: 2025-12-23 15:29:04
 FilePath: /RAG_service/chain/rag_autogen/rag_lifht.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AEfrom
 
