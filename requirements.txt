@@ -1,1 +1,7 @@
-
+langchain-core
+langchain-community
+pydantic
+python-dotenv
+pydantic-settings
+dashscope
+faiss-cpu
