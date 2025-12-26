@@ -268,6 +268,27 @@ def get_recall_memories(query:str,config:RunnableConfig) -> List[str]:
     else:
         return ["没有找到相关记忆"]
 
+@tool
+def search_recall_memories(query:str, config:RunnableConfig) -> List[str]:
+    """从FAISS向量存储中搜索相关记忆
+    
+    Args:
+        query: 查询内容
+        config: 运行配置
+
+    Returns:
+        List[str]: 相关记忆列表
+    """
+    user_id= get_user_id(config)
+    memories = memory_manager.search_memories(query, user_id,MAX_MEMORY_DISPLAY)
+    if memories:
+        print(f" [记忆检索] 找到 {len(memories)} 条相关记忆")
+        for i, memory in enumerate(memories, 1):
+            print(f"   {i}. {memory[:100]}...")
+    
+    return memories
+
+
 class State(MessagesState):
     """
     对话状态类
@@ -275,7 +296,7 @@ class State(MessagesState):
     """
     recall_memories: List[str]
 
-def load_memories(state,config:RunnableConfig) -> dict:
+def load_memories(state,config:RunnableConfig) -> State:
     """
     加载相关记忆节点
 
@@ -284,24 +305,17 @@ def load_memories(state,config:RunnableConfig) -> dict:
         config: 运行配置
 
     Returns:
-        dict: 更新后的对话状态
+        State: 更新后的对话状态
     """
-    user_id = get_user_id(config)
-    # 确保state是字典格式
-    state_dict = state if isinstance(state, dict) else state.__dict__
+    convo_str = get_buffer_string(state["messages"])
+    convo_str = convo_str[:MEMORY_TRUNCATE_LENGTH]
     
-    # 获取用户的最新消息作为查询
-    if state_dict.get("messages"):
-        last_msg = state_dict["messages"][-1]
-        if hasattr(last_msg, "content"):
-            user_msg = last_msg.content
-        else:
-            user_msg = last_msg.get("content", "") if isinstance(last_msg, dict) else ""
-        state_dict["recall_memories"] = memory_manager.search_memories(user_msg, user_id,MAX_MEMORY_DISPLAY)
-    else:
-        state_dict["recall_memories"] = []
-    
-    return state_dict
+    # 搜索相关记忆
+    recall_memories = search_recall_memories.invoke(convo_str, config)
+    print(f"检索到的记忆{recall_memories}")
+    return {
+        "recall_memories": recall_memories,
+    }
 
 def agent(state) -> dict:
     """
@@ -314,26 +328,24 @@ def agent(state) -> dict:
         dict: 更新后的对话状态
     """
     # 确保state是字典格式
-    state_dict = state if isinstance(state, dict) else state.__dict__
-    
+
     model_with_tools = model.bind_tools([save_recall_memory])
     recall_str = ""
-
-    if state_dict.get("recall_memories"):
-        recall_str = "\n".join([f"• {memory}" for memory in state_dict["recall_memories"]])
+    if state.get("recall_memories"):
+        recall_str = "\n".join([f"• {memory}" for memory in state["recall_memories"]])
 
     response = prompt.invoke({
-        "messages":state_dict["messages"],
+        "messages":state["messages"],
         "recall_memory": recall_str or "暂无相关记忆"
     })
 
     prediction = model_with_tools.invoke(response)
 
     return {
-        "messages": state_dict["messages"] + [prediction]
+        "messages": state["messages"] + [prediction]
     }
 
-def save_memory(state,config:RunnableConfig) -> dict:
+def save_memory(state,config:RunnableConfig) -> State:
         """
         保存记忆节点
 
@@ -342,12 +354,9 @@ def save_memory(state,config:RunnableConfig) -> dict:
             config: 运行配置
 
         Returns:
-            dict: 更新后的对话状态
+            State: 更新后的对话状态
         """
-        # 确保state是字典格式
-        state_dict = state if isinstance(state, dict) else state.__dict__
-        
-        messages = state_dict["messages"]
+        messages = state["messages"]
         if len(messages) >= 2:
             user_msg = None
             ai_msg = None
@@ -368,7 +377,7 @@ def save_memory(state,config:RunnableConfig) -> dict:
             if user_msg and ai_msg:
                 memory_content = f"用户：{user_msg}\n助手：{ai_msg}"
                 save_recall_memory.invoke(memory_content,config)
-        return state_dict
+        return {}
 
 def route_tools(state):
     """工具路由节点
@@ -380,9 +389,9 @@ def route_tools(state):
         str: 下一个节点名称
     """
     # 确保state是字典格式
-    state_dict = state if isinstance(state, dict) else state.__dict__
+    # state_dict = state if isinstance(state, dict) else state.__dict__
     
-    msg = state_dict["messages"][-1]
+    msg = state["messages"][-1]
     if hasattr(msg, 'tool_calls') and msg.tool_calls:
         return "tools"
     return END
