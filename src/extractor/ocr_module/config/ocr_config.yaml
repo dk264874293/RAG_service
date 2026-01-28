@@ -1,0 +1,76 @@
+# config/ocr_config.yaml
+ocr:
+  default_engine: "paddle-api"  # paddle, easyocr, tesseract
+  
+  # 通用配置
+  general:
+    use_gpu: true
+    gpu_id: 0
+    batch_size: 8
+    lang: ["ch", "en"]
+    cache_enabled: true
+    cache_ttl: 3600
+    
+  # 引擎特定配置
+  engines:
+    paddle:
+      use_angle_cls: true
+      det_model_dir: "${MODEL_DIR}/paddle/det"
+      rec_model_dir: "${MODEL_DIR}/paddle/rec"
+      cls_model_dir: "${MODEL_DIR}/paddle/cls"
+      det_limit_side_len: 960
+      det_limit_type: "max"
+      
+    easyocr:
+      gpu: true
+      model_storage_directory: "${MODEL_DIR}/easyocr"
+      user_network_directory: null
+      download_enabled: true
+      
+    tesseract:
+      path: "/usr/bin/tesseract"
+      psm: 6
+      oem: 3
+      
+  # 预处理配置
+  preprocessing:
+    enabled: true
+    steps:
+      - name: "denoise"
+        enabled: true
+        method: "fastNlMeansDenoising"
+        
+      - name: "deskew"
+        enabled: true
+        method: "hough"
+        
+      - name: "binarization"
+        enabled: true
+        method: "adaptive"
+        block_size: 11
+        c: 2
+        
+      - name: "enhance_contrast"
+        enabled: true
+        method: "clahe"
+        clip_limit: 2.0
+        
+  # 后处理配置
+  postprocessing:
+    enabled: true
+    steps:
+      - name: "spell_check"
+        enabled: true
+        dictionary: "chinese_english"
+        
+      - name: "layout_reconstruction"
+        enabled: true
+        method: "rule_based"
+        
+      - name: "table_extraction"
+        enabled: true
+        enabled: false
+        
+      - name: "confidence_filter"
+        enabled: true
+        threshold: 0.6
