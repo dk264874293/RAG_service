@@ -11,7 +11,7 @@ from .base_ocr import BaseOCR
 from .paddle_ocr import PaddleOCRWrapper
 # from .easy_ocr import EasyOCRWrapper
 # from .tesseract_ocr import TesseractOCRWrapper
-from typing import Dict, Type
+from typing import Dict, Type, Any, List
 
 class OCRFactory:
     _engines: Dict[str, Type[BaseOCR]] = {

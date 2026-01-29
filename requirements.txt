@@ -5,3 +5,12 @@ python-dotenv
 pydantic-settings
 dashscope
 faiss-cpu
+uvicorn
+watchfiles
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+slowapi
+structlog
+prometheus-client
+sentence-transformers

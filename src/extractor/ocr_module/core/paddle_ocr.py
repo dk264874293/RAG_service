@@ -10,15 +10,15 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tempfile import NamedTemporaryFile
 
-from base_ocr import BaseOCR, OCRResult
-from exceptions import (
+from .base_ocr import BaseOCR, OCRResult
+from .exceptions import (
     OCREngineInitError,
     OCRNetworkError,
     OCRConfigError,
     OCRParseError,
     OCRInputError,
 )
-from result_saver import ResultSaver
+from .result_saver import ResultSaver
 
 
 class PaddleOCRWrapper(BaseOCR):
@@ -40,6 +40,7 @@ class PaddleOCRWrapper(BaseOCR):
 
     def _validate_config(self):
         """验证配置参数"""
+        self.logger.info("验证配置参数", self.config)
         ocr_version = self.config.get("ocr_version", "PaddleOCR-VL")
 
         if ocr_version not in ["PP-StructureV3", "PaddleOCR-VL", "PP-OCRv5"]:

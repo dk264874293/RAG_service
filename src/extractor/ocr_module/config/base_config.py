@@ -2,7 +2,7 @@
 Author: 汪培良 rick_wang@yunquna.com
 Date: 2026-01-25 13:36:21
 LastEditors: 汪培良 rick_wang@yunquna.com
-LastEditTime: 2026-01-25 13:36:26
+LastEditTime: 2026-01-29 07:04:02
 FilePath: /RAG_service/src/extractor/ocr_module/config/base_config.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from enum import Enum
 import yaml
 import os
+import logging
+from pathlib import Path
 
 class OCRLang(str, Enum):
     CHINESE = "ch"
@@ -63,11 +65,24 @@ class OCRConfig(BaseModel):
 
 class ConfigManager:
     def __init__(self, config_path: str = None):
-        self.config_path = config_path or "config/ocr_config.yaml"
+        self.logger = logging.getLogger(__name__)
+        if config_path is None:
+            # 获取当前模块文件的绝对路径
+            module_dir = Path(__file__).parent
+            self.config_path = module_dir / "ocr_config.yaml"
+        else:
+            self.config_path = Path(config_path)
         self.config = self.load_config()
         
     def load_config(self) -> OCRConfig:
-        with open(self.config_path, 'r', encoding='utf-8') as f:
+        config_path = str(self.config_path)
+        if not Path(config_path).exists():
+            # 如果配置文件不存在，使用默认配置
+            self.logger = logging.getLogger(__name__)
+            self.logger.warning(f"配置文件不存在: {config_path}，使用默认配置")
+            return OCRConfig()
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
             config_data = yaml.safe_load(f)
         
         # 处理环境变量

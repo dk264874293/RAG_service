@@ -10,9 +10,9 @@ import aiofiles
 from typing import List, Dict, Optional
 from pathlib import Path
 from ..models.document import Document
-from ..extractor.extract_processor import ExtractProcessor
-from ..extractor.pdf_extractor import PdfExtractor, EnhancedPdfExtractor
+from ..extractor.pdf_extractor import PdfExtractor
 from ..extractor.word_extractor import WordExtractor
+from .adaptive_chunker import AdaptiveChunker
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ class DocumentProcessingPipeline:
 
     def __init__(self, config: Optional[Dict] = None):
         self.config = config or {}
+        self.chunker = AdaptiveChunker(config)
         self.supported_formats = {
             ".pdf": self._process_pdf,
             ".docx": self._process_docx,
@@ -59,39 +60,61 @@ class DocumentProcessingPipeline:
         # 3. 文本清洗和标准化
         cleaned_content = self._clean_content(content)
 
-        # 4. 分块策略（将在后续步骤中实现）
-        # chunks = await self._chunk_document(cleaned_content, file_ext)
+        # 4. 分块策略
+        enable_chunking = self.config.get("enable_chunking", False)
+        if enable_chunking:
+            doc_type = self._detect_doc_type(file_path)
+            chunks = self.chunker.chunk_document(cleaned_content, doc_type)
+        else:
+            # 不启用分块，使用完整内容
+            chunks = [cleaned_content]
 
         # 5. 元数据增强
         enhanced_metadata = await self._enhance_metadata(
             metadata or {}, file_path, file_ext
         )
 
-        # 创建文档对象
-        document = Document(page_content=cleaned_content, metadata=enhanced_metadata)
+        # 创建文档对象列表
+        documents = [
+            Document(page_content=chunk, metadata=enhanced_metadata) for chunk in chunks
+        ]
 
-        return [document]
+        logger.info(f"文档处理完成: 共 {len(documents)} 个分块")
+        return documents
+
+    def _detect_doc_type(self, file_path: str) -> str:
+        """根据文件路径检测文档类型"""
+        from pathlib import Path
+
+        filename = Path(file_path).name.lower()
+
+        if "论文" in filename or "paper" in filename:
+            return "research_paper"
+        elif "合同" in filename or "contract" in filename or "法律" in filename:
+            return "legal_document"
+        elif "技术" in filename or "manual" in filename or "api" in filename:
+            return "technical_doc"
+        elif "财务" in filename or "financial" in filename or "报表" in filename:
+            return "financial_report"
+        elif ".py" in filename or ".js" in filename or ".java" in filename:
+            return "source_code"
+        else:
+            return "default"
 
     async def _process_pdf(self, file_path: str) -> str:
         """处理PDF文件"""
         # 根据配置选择是否启用OCR
         enable_ocr = self.config.get("enable_pdf_ocr", True)
 
-        # 获取PDF解析模式
-        parse_mode = self.config.get(
-            "pdf_parse_mode", "text_layer"
-        )  # text_layer 或 full_ocr
-
         # 统一使用增强版PDF提取器
-        extractor = EnhancedPdfExtractor(
+        extractor = PdfExtractor(
             file_path,
             tenant_id="default",
             user_id="default",
             config=self.config,
             enable_ocr=enable_ocr,
-            parse_mode=parse_mode,
         )
-        logger.info(f"使用增强版PDF提取器 (OCR: {enable_ocr}, 解析模式: {parse_mode})")
+        logger.info(f"使用增强版PDF提取器 (OCR: {enable_ocr}")
 
         # 在单独的线程中执行同步提取操作
         documents = await asyncio.to_thread(extractor.extract)
