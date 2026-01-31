@@ -14,40 +14,24 @@ def get_settings() -> settings:
 
 @lru_cache(maxsize=1)
 def get_upload_service() -> UploadService:
-    """
-    获取上传服务实例（使用单例模式）
-
-    使用 LRU 缓存确保整个应用生命周期内只有一个 UploadService 实例，
-    避免每次请求都创建新实例的性能开销。
-    """
+    """获取上传服务实例（使用单例模式）"""
     return UploadService(get_settings())
 
 
 @lru_cache(maxsize=1)
 def get_document_service() -> DocumentService:
-    """
-    获取文档服务实例（使用单例模式）
-
-    使用 LRU 缓存确保整个应用生命周期内只有一个 DocumentService 实例，
-    避免每次请求都创建新实例的性能开销。
-    """
+    """获取文档服务实例（使用单例模式）"""
     return DocumentService(get_settings())
 
 
 @lru_cache(maxsize=1)
 def get_markdown_service() -> MarkdownService:
-    """
-    获取 Markdown 服务实例（使用单例模式）
-
-    使用 LRU 缓存确保整个应用生命周期内只有一个 MarkdownService 实例，
-    避免每次请求都创建新实例的性能开销。
-    """
+    """获取 Markdown 服务实例（使用单例模式）"""
     return MarkdownService(get_settings())
 
 
-# Vector service dependencies
 @lru_cache(maxsize=1)
-def get_embedding_service() -> object:
+def get_embedding_service():
     """Get embedding service instance (singleton pattern)"""
     from src.vector.embed_service import EmbeddingService
 
@@ -55,7 +39,7 @@ def get_embedding_service() -> object:
 
 
 @lru_cache(maxsize=1)
-def get_vector_store() -> object:
+def get_vector_store():
     """Get vector store instance (singleton pattern)"""
     embedding_service = get_embedding_service()
     from src.vector.vector_store import FAISSVectorStore
@@ -64,10 +48,45 @@ def get_vector_store() -> object:
 
 
 @lru_cache(maxsize=1)
-def get_retrieval_service() -> object:
+def get_retrieval_service():
     """Get retrieval service instance (singleton pattern)"""
     embedding_service = get_embedding_service()
     vector_store = get_vector_store()
     from src.vector.retrieval_service import RetrievalService
 
     return RetrievalService(get_settings(), vector_store, embedding_service)
+
+
+@lru_cache(maxsize=1)
+def get_retrieval_strategy():
+    """Get retrieval strategy instance based on config (singleton pattern)"""
+    from src.retrieval.strategies.factory import RetrievalStrategyFactory
+
+    embedding_service = get_embedding_service()
+    vector_store = get_vector_store()
+
+    dependencies = {
+        "vector_store": vector_store,
+        "embedding_service": embedding_service,
+        "use_reranking": settings.retrieval_strategy_config.get("use_reranking", True),
+        "reranker_model": settings.retrieval_strategy_config.get(
+            "reranker_model", "BAAI/bge-reranker-large"
+        ),
+        "bm25_index": None,
+        "alpha": settings.hybrid_retrieval_config.get("alpha", 0.7),
+        "bm25_k1": settings.hybrid_retrieval_config.get("bm25_k1", 1.2),
+        "bm25_b": settings.hybrid_retrieval_config.get("bm25_b", 0.75),
+        "parent_chunk_size": settings.parent_child_config.get(
+            "parent_chunk_size", 2000
+        ),
+        "child_chunk_size": settings.parent_child_config.get("child_chunk_size", 400),
+        "chunk_overlap": settings.parent_child_config.get("chunk_overlap", 50),
+    }
+
+    strategy = RetrievalStrategyFactory.create(
+        settings.retrieval_strategy,
+        settings.retrieval_strategy_config,
+        dependencies,
+    )
+
+    return strategy

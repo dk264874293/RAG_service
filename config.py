@@ -10,7 +10,7 @@ Description: 统一的配置管理，支持从环境变量和.env文件加载配
 import os
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -159,6 +159,45 @@ class Settings(BaseSettings):
     # 是否启用混合检索，结合向量检索、关键词检索和结构化检索
     # True：提高检索召回率和准确率；False：仅使用向量检索
     enable_hybrid_retrieval: bool = True
+
+    # 检索策略配置
+    retrieval_strategy: str = "vector"
+    retrieval_strategy_config: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "use_reranking": True,
+            "reranker_top_k": 20,
+        }
+    )
+
+    # FAISS索引类型配置
+    faiss_index_type: str = "flat"
+    faiss_index_config: Dict[str, any] = Field(
+        default_factory=lambda: {
+            "nlist": 100,
+            "m": 64,
+            "nbits": 8,
+            "M": 32,
+            "efSearch": 64,
+        }
+    )
+
+    # 混合检索配置
+    hybrid_retrieval_config: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "alpha": 0.7,
+            "bm25_k1": 1.2,
+            "bm25_b": 0.75,
+        }
+    )
+
+    # 父子索引配置
+    parent_child_config: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "parent_chunk_size": 2000,
+            "child_chunk_size": 400,
+            "chunk_overlap": 50,
+        }
+    )
 
     # 混合检索权重分配，控制不同检索方法的贡献度
     # 总和应为1.0，影响最终检索结果排序
