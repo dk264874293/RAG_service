@@ -1,4 +1,91 @@
+# 环境变量和密钥
 .env
-__pycache__/
+.env.local
+.env.*.local
 
-output_dir
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 数据目录
+data/*
+!data/.gitkeep
+
+# 日志
+logs/*
+*.log
+
+# 输出目录
+output_dir/
+src/extractor/ocr_module/output_dir/
+
+# FAISS索引
+data/faiss_index/*.faiss
+data/faiss_index/*.pkl
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+*.cache
+
+# 系统文件
+Thumbs.db
+.DS_Store
+*.pid
+
+# 前端构建
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/static/
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 上传文件
+data/uploads/*
+!data/uploads/.gitkeep
+
+# 处理文件
+data/processed/*
+!data/processed/.gitkeep

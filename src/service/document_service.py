@@ -25,9 +25,11 @@ class DocumentService:
             config = {
                 "enable_pdf_ocr": self.settings.enable_pdf_ocr,
                 "ocr_engine": self.settings.ocr_engine,
+                "ocr_version": self.settings.ocr_engine,
                 "ocr_confidence_threshold": self.settings.ocr_confidence_threshold,
                 "ocr_module_confidence_threshold": self.settings.ocr_module_confidence_threshold,
                 "ocr_api_endpoint": self.settings.ocr_api_endpoint,
+                "ocr_api_key": self.settings.ocr_api_key,
                 "ocr_output_dir": self.settings.ocr_output_dir,
                 "ocr_error_continue": self.settings.ocr_error_continue,
                 "enable_chunking": self.settings.enable_chunking,

@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from src.core.security import verify_token
-from src.config import settings
+import config
 
 
 security = HTTPBearer()
@@ -72,7 +72,7 @@ async def verify_api_key(api_key: str) -> bool:
     Returns:
         bool: 密钥是否有效
     """
-    return api_key == settings.api_key if settings.api_key else False
+    return api_key == config.settings.api_key if config.settings.api_key else False
 
 
 class OptionalAuth:

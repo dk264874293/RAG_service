@@ -8,7 +8,7 @@ import sys
 from typing import Any, Dict
 import structlog
 from structlog.types import Processor
-from src.config import settings
+import config
 
 
 def add_app_context(
@@ -26,7 +26,9 @@ def add_app_context(
         Dict[str, Any]: 更新后的事件字典
     """
     event_dict["app"] = "rag_service"
-    event_dict["environment"] = "development" if settings.debug_mode else "production"
+    event_dict["environment"] = (
+        "development" if config.settings.debug_mode else "production"
+    )
     return event_dict
 
 
@@ -38,7 +40,6 @@ def configure_logging() -> None:
     """
     shared_processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
-        structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
@@ -46,7 +47,7 @@ def configure_logging() -> None:
         add_app_context,
     ]
 
-    if settings.debug_mode:
+    if config.settings.debug_mode:
         shared_processors.append(structlog.dev.ConsoleRenderer())
     else:
         shared_processors.append(structlog.processors.JSONRenderer())
@@ -55,7 +56,7 @@ def configure_logging() -> None:
         processors=shared_processors,
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(),
+        logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
 
@@ -68,7 +69,7 @@ def configure_logging() -> None:
     logging.getLogger().handlers[0].setFormatter(
         structlog.stdlib.ProcessorFormatter(
             processor=structlog.dev.ConsoleRenderer()
-            if settings.debug_mode
+            if config.settings.debug_mode
             else structlog.processors.JSONRenderer(),
         )
     )

@@ -150,10 +150,11 @@ async def get_upload_history(
     """获取上传历史记录"""
     try:
         items = upload_service.get_history(limit)
+        total = upload_service.get_total_count()
 
         return UploadHistoryList(
             items=items,
-            total=len(upload_service.upload_history),
+            total=total,
         )
     except Exception as e:
         logger.error(f"获取上传历史失败: {e}")

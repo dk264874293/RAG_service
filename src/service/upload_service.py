@@ -190,6 +190,15 @@ class UploadService:
             )
         return items
 
+    def get_total_count(self) -> int:
+        """获取总上传记录数"""
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM uploads")
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count
+
     def get_file_status(self, file_id: str) -> Optional[Dict[str, Any]]:
         conn = sqlite3.connect(str(self.db_path))
         cursor = conn.cursor()

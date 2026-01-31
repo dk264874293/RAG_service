@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Upload,
   FileText,
@@ -7,7 +7,8 @@ import {
   Search,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { documentService } from '../services/documents';
 import { UploadedFile } from '../types';
@@ -112,32 +113,32 @@ export default function DocumentsPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+    <div className="p-6 animate-fade-in">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
           文档管理
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-gray-600 dark:text-gray-400 text-lg">
           上传、管理和删除RAG系统中的文档
         </p>
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg">
+        <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg animate-fade-in">
           {error}
         </div>
       )}
 
       {success && (
-        <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg">
+        <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg animate-fade-in">
           {success}
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 hover:shadow-lg transition-shadow duration-300">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div className="flex-1 w-full md:w-auto">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="label text-base font-medium">
               选择文件
             </label>
             <input
@@ -146,12 +147,13 @@ export default function DocumentsPage() {
               multiple
               onChange={handleFileSelect}
               className="w-full text-sm text-gray-500 dark:text-gray-400
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-full file:border-0
-                file:text-sm file:font-semibold
+                file:mr-4 file:py-2.5 file:px-4
+                file:rounded-lg file:border-0
+                file:text-sm file:font-medium
                 file:bg-indigo-50 file:text-indigo-700
                 hover:file:bg-indigo-100
-                dark:file:bg-gray-700 dark:file:text-indigo-300"
+                dark:file:bg-gray-700 dark:file:text-indigo-300
+                transition-all duration-200"
             />
           </div>
 
@@ -159,11 +161,11 @@ export default function DocumentsPage() {
             <button
               onClick={handleUpload}
               disabled={!selectedFiles || uploading}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium py-2.5 px-6 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
             >
               {uploading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   <span>上传中...</span>
                 </>
               ) : (
@@ -177,7 +179,7 @@ export default function DocumentsPage() {
             <button
               onClick={loadFiles}
               disabled={loading}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-6 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               <span>刷新</span>
@@ -186,13 +188,16 @@ export default function DocumentsPage() {
         </div>
 
         {selectedFiles && selectedFiles.length > 0 && (
-          <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-            已选择 {selectedFiles.length} 个文件
+          <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg text-sm text-indigo-800 dark:text-indigo-200 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              <span className="font-medium">已选择 {selectedFiles.length} 个文件</span>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 hover:shadow-lg transition-shadow duration-300">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
@@ -200,32 +205,32 @@ export default function DocumentsPage() {
             placeholder="搜索文件..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
           />
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   状态
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   文件名
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   类型
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   大小
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   上传时间
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   操作
                 </th>
               </tr>
@@ -233,22 +238,26 @@ export default function DocumentsPage() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    <div className="flex justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                  <td colSpan={6} className="px-6 py-16 text-center text-gray-500 dark:text-gray-400">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <Loader2 className="h-8 w-8 animate-spin text-indigo-600 dark:text-indigo-400" />
+                      <p>加载中...</p>
                     </div>
                   </td>
                 </tr>
               ) : filteredFiles.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                    <p>暂无文件</p>
+                  <td colSpan={6} className="px-6 py-16 text-center text-gray-500 dark:text-gray-400">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <FileText className="h-16 w-16 opacity-30" />
+                      <p className="text-lg">暂无文件</p>
+                      <p className="text-sm">上传第一个文件开始使用</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 filteredFiles.map((file) => (
-                  <tr key={file.file_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <tr key={file.file_id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusIcon(file.processing_status)}
                     </td>
@@ -256,12 +265,12 @@ export default function DocumentsPage() {
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
                         {file.file_name}
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 font-mono text-xs mt-1">
                         {file.file_id.slice(0, 8)}...
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
+                      <span className="px-3 py-1 inline-flex text-xs font-semibold rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200">
                         {file.file_type || '未知'}
                       </span>
                     </td>
@@ -271,10 +280,11 @@ export default function DocumentsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(file.uploaded_at).toLocaleString('zh-CN')}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button
                         onClick={() => handleDelete(file.file_id, file.file_name)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                        className="p-2 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                        title="删除文件"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>

@@ -6,14 +6,11 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from pydantic import ValidationError
 
-from src.config import settings
-
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import config
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -27,7 +24,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         bool: 密码是否匹配
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    # bcrypt 有72字节限制，手动截断
+    truncated_password = (
+        plain_password[:72] if len(plain_password) > 72 else plain_password
+    )
+    return bcrypt.checkpw(
+        truncated_password.encode("utf-8"), hashed_password.encode("utf-8")
+    )
 
 
 def get_password_hash(password: str) -> str:
@@ -40,7 +43,11 @@ def get_password_hash(password: str) -> str:
     Returns:
         str: 哈希后的密码
     """
-    return pwd_context.hash(password)
+    # bcrypt 有72字节限制，手动截断
+    truncated_password = password[:72] if len(password) > 72 else password
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(truncated_password.encode("utf-8"), salt)
+    return hashed.decode("utf-8")
 
 
 def create_access_token(
@@ -62,13 +69,13 @@ def create_access_token(
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(
-            minutes=settings.access_token_expire_minutes
+            minutes=config.settings.access_token_expire_minutes
         )
 
     to_encode.update({"exp": expire, "iat": datetime.utcnow()})
 
     encoded_jwt = jwt.encode(
-        to_encode, settings.secret_key, algorithm=settings.algorithm
+        to_encode, config.settings.secret_key, algorithm=config.settings.algorithm
     )
 
     return encoded_jwt
@@ -86,7 +93,7 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
     """
     try:
         payload = jwt.decode(
-            token, settings.secret_key, algorithms=[settings.algorithm]
+            token, config.settings.secret_key, algorithms=[config.settings.algorithm]
         )
         return payload
     except JWTError:
@@ -105,9 +112,10 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
     """
     try:
         payload = jwt.decode(
-            token, settings.secret_key, algorithms=[settings.algorithm]
+            token, config.settings.secret_key, algorithms=[config.settings.algorithm]
         )
 
+        # 检查过期时间
         exp = payload.get("exp")
         if exp is None:
             return None

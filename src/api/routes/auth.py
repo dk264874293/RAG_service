@@ -10,7 +10,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
 
 from src.core.security import create_access_token, verify_password
-from src.config import settings
+from src.core.auth import get_current_user
+import config
 
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
@@ -43,7 +44,7 @@ class TokenData(BaseModel):
 FAKE_USERS_DB: Dict[str, Dict[str, Any]] = {
     "admin": {
         "username": "admin",
-        "password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU9bK8fk.5qW",  # 密码: admin123
+        "password": "$2b$12$eGsYYcaZ0dppVn8s4cqAQO0neoKSxlFiS3Nc6PSwuHlyfiAzFPdlq",  # 密码: admin123
         "user_id": "admin_user",
         "disabled": False,
     }
@@ -101,7 +102,9 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> TokenRespon
             status_code=status.HTTP_403_FORBIDDEN, detail="用户账户已被禁用"
         )
 
-    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    access_token_expires = timedelta(
+        minutes=config.settings.access_token_expire_minutes
+    )
     access_token = create_access_token(
         data={"sub": user["user_id"], "username": user["username"]},
         expires_delta=access_token_expires,
@@ -110,7 +113,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> TokenRespon
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",
-        expires_in=settings.access_token_expire_minutes * 60,
+        expires_in=config.settings.access_token_expire_minutes * 60,
     )
 
 
@@ -144,7 +147,9 @@ async def login_json(login_data: LoginRequest) -> TokenResponse:
             status_code=status.HTTP_403_FORBIDDEN, detail="用户账户已被禁用"
         )
 
-    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    access_token_expires = timedelta(
+        minutes=config.settings.access_token_expire_minutes
+    )
     access_token = create_access_token(
         data={"sub": user["user_id"], "username": user["username"]},
         expires_delta=access_token_expires,
@@ -153,13 +158,13 @@ async def login_json(login_data: LoginRequest) -> TokenResponse:
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",
-        expires_in=settings.access_token_expire_minutes * 60,
+        expires_in=config.settings.access_token_expire_minutes * 60,
     )
 
 
 @router.get("/verify-token")
 async def verify_token_endpoint(
-    current_user: dict = Depends(src.core.auth.get_current_user),
+    current_user: dict = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     验证令牌有效性

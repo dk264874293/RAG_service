@@ -6,6 +6,7 @@ import DashboardPage from '../pages/DashboardPage';
 import DocumentsPage from '../pages/DocumentsPage';
 import SearchPage from '../pages/SearchPage';
 import EditorPage from '../pages/EditorPage';
+import VectorManagePage from '../pages/VectorManagePage';
 import MainLayout from '../components/MainLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -30,7 +31,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 
 const router = createBrowserRouter([
   {
-    path: '/',
+    path: '/login',
     element: (
       <PublicRoute>
         <LoginPage />
@@ -64,6 +65,10 @@ const router = createBrowserRouter([
       {
         path: 'editor',
         element: <EditorPage />,
+      },
+      {
+        path: 'vectors',
+        element: <VectorManagePage />,
       },
     ],
   },

@@ -1,4 +1,3 @@
-import React from 'react';
 import { File, FileText, Clock } from 'lucide-react';
 import { MarkdownFile } from '../types';
 
@@ -31,84 +30,49 @@ export default function FileList({ files, currentFile, onFileSelect, loading }: 
 
   if (loading) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>加载中...</div>
+      <div className="p-5 text-center text-editor-textMuted">加载中...</div>
     );
   }
 
   if (files.length === 0) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-        暂无Markdown文件
-      </div>
+      <div className="p-5 text-center text-gray-600">暂无Markdown文件</div>
     );
   }
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ 
-        padding: '16px', 
-        borderBottom: '1px solid #333', 
-        backgroundColor: '#252526',
-        color: '#cccccc'
-      }}>
-        <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>
-          文件列表 ({files.length})
-        </h3>
+    <div className="h-full flex flex-col">
+      <div className="px-4 py-4 border-b border-[#333] bg-editor-sidebar text-editor-text">
+        <h3 className="text-sm font-medium">文件列表 ({files.length})</h3>
       </div>
-      <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+      <div className="flex-1 overflow-auto p-2 scrollbar-thin">
         {files.map((file) => (
           <div
             key={file.path}
             onClick={() => onFileSelect(file)}
-            style={{
-              padding: '10px',
-              marginBottom: '4px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              backgroundColor: currentFile?.path === file.path ? '#37373d' : 'transparent',
-              border: currentFile?.path === file.path ? '1px solid #007acc' : '1px solid transparent',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              if (currentFile?.path !== file.path) {
-                e.currentTarget.style.backgroundColor = '#2a2d2e';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (currentFile?.path !== file.path) {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }
-            }}
+            className={`p-2.5 mb-1 rounded cursor-pointer border transition-all duration-200 ${
+              currentFile?.path === file.path
+                ? 'bg-[#37373d] border-[#007acc]'
+                : 'border-transparent bg-transparent hover:bg-[#2a2d2e]'
+            }`}
           >
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-              <FileText size={16} style={{ marginRight: '8px', color: '#4ec9b0' }} />
-              <span style={{ 
-                fontSize: '13px', 
-                color: '#cccccc',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                flex: 1
-              }}>
+            <div className="flex items-center mb-1">
+              <FileText size={16} className="mr-2 text-[#4ec9b0] flex-shrink-0" />
+              <span className="text-sm text-editor-text overflow-hidden text-ellipsis whitespace-nowrap flex-1">
                 {file.name}
               </span>
             </div>
-            <div style={{ fontSize: '11px', color: '#858585', marginLeft: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2px' }}>
-                <File size={12} style={{ marginRight: '4px' }} />
-                <span style={{ 
-                  overflow: 'hidden', 
-                  textOverflow: 'ellipsis', 
-                  whiteSpace: 'nowrap',
-                  maxWidth: '200px'
-                }}>
+            <div className="text-xs text-editor-textMuted ml-6 space-y-1">
+              <div className="flex items-center">
+                <File size={12} className="mr-1 flex-shrink-0" />
+                <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-[200px]">
                   {file.folder_name}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <Clock size={12} style={{ marginRight: '4px' }} />
+              <div className="flex items-center">
+                <Clock size={12} className="mr-1 flex-shrink-0" />
                 <span>{formatTime(file.modified_time)}</span>
-                <span style={{ marginLeft: '8px', marginRight: '8px' }}>|</span>
+                <span className="mx-2">|</span>
                 <span>{formatFileSize(file.size)}</span>
               </div>
             </div>

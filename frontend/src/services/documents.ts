@@ -98,8 +98,8 @@ export const documentService = {
   },
 
   getIndexStats: async (): Promise<IndexStats> => {
-    const response = await documentsApi.get<IndexStats>('/retrieval/stats');
-    return response.data;
+    const response = await documentsApi.get<{ status: string; stats: IndexStats }>('/retrieval/stats');
+    return response.data.stats;
   },
 };
 

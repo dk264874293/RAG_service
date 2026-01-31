@@ -1,4 +1,3 @@
-import React from 'react';
 import Header from './Header';
 import FileList from './FileList';
 import MonacoEditor from './MonacoEditor';
@@ -26,14 +25,7 @@ export default function Layout({
   loading,
 }: LayoutProps) {
   return (
-    <div style={{
-      height: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      backgroundColor: '#1e1e1e',
-      color: '#cccccc',
-      overflow: 'hidden',
-    }}>
+    <div className="h-screen flex flex-col bg-editor-bg text-editor-text overflow-hidden">
       <Header
         fileName={currentFile?.name || null}
         isModified={editorState.isModified}
@@ -42,19 +34,9 @@ export default function Layout({
         onSave={onSave}
         onRefresh={onRefresh}
       />
-      
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          width: '300px',
-          borderRight: '1px solid #252526',
-          backgroundColor: '#252526',
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
+
+      <div className="flex-1 flex overflow-hidden">
+        <div className="w-[300px] border-r border-editor-border bg-editor-sidebar flex flex-col">
           <FileList
             files={files}
             currentFile={currentFile}
@@ -62,36 +44,14 @@ export default function Layout({
             loading={loading}
           />
         </div>
-        
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: '#1e1e1e',
-        }}>
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              flex: 1,
-              borderRight: '1px solid #333333',
-              display: 'flex',
-              flexDirection: 'column',
-            }}>
-              <div style={{
-                padding: '8px 16px',
-                backgroundColor: '#2d2d30',
-                borderBottom: '1px solid #3e3e42',
-                fontSize: '12px',
-                color: '#858585',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-              }}>
+
+        <div className="flex-1 flex flex-col bg-editor-bg">
+          <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 border-r border-editor-border flex flex-col">
+              <div className="px-4 py-2 bg-[#2d2d30] border-b border-[#3e3e42] text-xs text-editor-textMuted uppercase tracking-wider">
                 编辑器
               </div>
-              <div style={{ flex: 1, overflow: 'hidden' }}>
+              <div className="flex-1 overflow-hidden">
                 <MonacoEditor
                   value={editorState.content}
                   onChange={onContentChange}
@@ -99,38 +59,19 @@ export default function Layout({
                 />
               </div>
             </div>
-            
-            <div style={{
-              width: '400px',
-              display: 'flex',
-              flexDirection: 'column',
-            }}>
-              <div style={{
-                padding: '8px 16px',
-                backgroundColor: '#2d2d30',
-                borderBottom: '1px solid #3e3e42',
-                fontSize: '12px',
-                color: '#858585',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-              }}>
+
+            <div className="w-[400px] flex flex-col">
+              <div className="px-4 py-2 bg-[#2d2d30] border-b border-[#3e3e42] text-xs text-editor-textMuted uppercase tracking-wider">
                 预览
               </div>
-              <div style={{ flex: 1, overflow: 'hidden' }}>
+              <div className="flex-1 overflow-hidden">
                 <MarkdownPreview content={editorState.content} />
               </div>
             </div>
           </div>
-          
+
           {editorState.error && (
-            <div style={{
-              padding: '8px 16px',
-              backgroundColor: '#5a1d1d',
-              color: '#ff6b68',
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-            }}>
+            <div className="px-4 py-2 bg-[#5a1d1d] text-[#ff6b68] text-sm flex items-center">
               {editorState.error}
             </div>
           )}

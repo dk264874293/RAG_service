@@ -7,7 +7,7 @@ from fastapi import Request, HTTPException, status
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from src.config import settings
+import config
 
 
 def get_real_client_ip(request: Request) -> str:

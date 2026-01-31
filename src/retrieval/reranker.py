@@ -25,7 +25,6 @@ class Reranker:
         """
         self.model_name = model_name
         self.model = None
-        self._lazy_init()
 
     def _lazy_init(self):
         """

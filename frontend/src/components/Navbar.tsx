@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
@@ -8,9 +8,11 @@ import {
   LogOut,
   Menu,
   X,
-  User
+  User,
+  Database
 } from 'lucide-react';
 import { authService, getStoredUserInfo } from '../services/auth';
+import ThemeToggle from './ThemeToggle';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -28,6 +30,7 @@ export default function Navbar() {
     { name: '文档管理', href: '/documents', icon: FileText },
     { name: '智能检索', href: '/search', icon: Search },
     { name: '编辑器', href: '/editor', icon: Edit },
+    { name: '向量管理', href: '/vectors', icon: Database },
   ];
 
   const isActive = (path: string) => {
@@ -73,6 +76,8 @@ export default function Navbar() {
 
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             <div className="flex items-center gap-3">
+              <ThemeToggle />
+
               <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
                 <User className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -139,6 +144,15 @@ export default function Navbar() {
                 <div className="text-base font-medium text-gray-800 dark:text-white">
                   {userInfo?.username || '用户'}
                 </div>
+              </div>
+            </div>
+
+            <div className="px-4 mb-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  主题切换
+                </span>
+                <ThemeToggle />
               </div>
             </div>
 

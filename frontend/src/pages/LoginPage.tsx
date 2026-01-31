@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
 import { authService } from '../services/auth';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -26,12 +27,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="max-w-md w-full mx-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4 transition-colors duration-300">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
+      <div className="max-w-md w-full">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl shadow-indigo-500/10 dark:shadow-gray-900/50 p-8 animate-fade-in backdrop-blur-sm">
           <div className="flex justify-center mb-8">
-            <div className="bg-indigo-600 p-3 rounded-full">
-              <LogIn className="w-8 h-8 text-white" />
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-4 rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <LogIn className="w-10 h-10 text-white" />
             </div>
           </div>
 
@@ -43,10 +48,10 @@ export default function LoginPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
+            <div className="group">
               <label
                 htmlFor="username"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                className="label"
               >
                 用户名
               </label>
@@ -56,15 +61,15 @@ export default function LoginPage() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="input focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-all duration-200"
                 placeholder="请输入用户名"
               />
             </div>
 
-            <div>
+            <div className="group">
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                className="label"
               >
                 密码
               </label>
@@ -74,13 +79,13 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="input focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-all duration-200"
                 placeholder="请输入密码"
               />
             </div>
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm animate-fade-in">
                 {error}
               </div>
             )}
@@ -88,7 +93,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl dark:shadow-none"
             >
               {loading ? (
                 <>
@@ -104,11 +109,21 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-            <p>默认用户名: admin</p>
-            <p>默认密码: admin123</p>
+          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">
+              测试账号
+            </p>
+            <div className="flex justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+              <p>用户名: admin</p>
+              <span>|</span>
+              <p>密码: admin123</p>
+            </div>
           </div>
         </div>
+
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
+          © 2024 RAG 系统. All rights reserved.
+        </p>
       </div>
     </div>
   );
