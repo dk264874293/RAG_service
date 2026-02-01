@@ -331,6 +331,27 @@ class Settings(BaseSettings):
         ]
     )
 
+    # ==================== 数据库配置 ====================
+
+    # MySQL数据库连接URL
+    # 格式: mysql+aiomysql://username:password@host:port/database_name
+    # 从环境变量DATABASE_URL读取，示例: mysql+aiomysql://root:password@localhost:3306/rag_service
+    database_url: str = os.getenv(
+        "DATABASE_URL", "mysql+aiomysql://root:password@localhost:3306/rag_service"
+    )
+
+    # 数据库连接池大小
+    # 控制同时可用的数据库连接数量
+    database_pool_size: int = 10
+
+    # 数据库最大溢出连接数
+    # 当连接池耗尽时，可以额外创建的连接数量
+    database_max_overflow: int = 20
+
+    # 数据库连接超时时间（秒）
+    # 连接数据库时的超时设置
+    database_connect_timeout: int = 30
+
     # ==================== OCR配置 ====================
 
     # 是否启用PDF OCR识别，对无法直接提取文本的PDF进行OCR
