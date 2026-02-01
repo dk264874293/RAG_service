@@ -73,48 +73,67 @@ class TokenData(BaseModel):
     username: str
 
 
-# 临时用户数据库（生产环境应使用真实数据库）
+# 临时用户数据库（保留用于对比，已废弃）
 # 这仅用于演示，生产环境应该连接到真实的用户数据库
-FAKE_USERS_DB: Dict[str, Dict[str, Any]] = {
-    "admin": {
-        "username": "admin",
-        "password": "$2b$12$eGsYYcaZ0dppVn8s4cqAQO0neoKSxlFiS3Nc6PSwuHlyfiAzFPdlq",  # 密码: admin123
-        "user_id": "admin_user",
-        "disabled": False,
-    }
-}
+# FAKE_USERS_DB: Dict[str, Dict[str, Any]] = {
+#     "admin": {
+#         "username": "admin",
+#         "password": "$2b$12$eGsYYcaZ0dppVn8s4cqAQO0neoKSxlFiS3Nc6PSwuHlyfiAzFPdlq",  # 密码: admin123
+#         "user_id": "admin_user",
+#         "disabled": False,
+#     }
+# }
 
 
-def authenticate_user(username: str, password: str) -> Dict[str, Any] | None:
+async def authenticate_user(
+    username: str, password: str, db: AsyncSession
+) -> Dict[str, Any] | None:
     """
     验证用户凭据
 
+    支持使用用户名或手机号登录。
+
     Args:
-        username: 用户名
+        username: 用户名或手机号
         password: 密码
+        db: 数据库会话
 
     Returns:
         用户信息字典，验证失败返回None
     """
-    user = FAKE_USERS_DB.get(username)
+    # 支持手机号或用户名登录
+    result = await db.execute(
+        select(User).where((User.phone == username) | (User.username == username))
+    )
+    user = result.scalar_one_or_none()
+
     if not user:
         return None
 
-    if not verify_password(password, user["password"]):
+    if not verify_password(password, user.password):
         return None
 
-    return user
+    return {
+        "username": user.username,
+        "user_id": str(user.id),
+        "phone": user.phone,
+        "disabled": False,
+    }
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> TokenResponse:
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)
+) -> TokenResponse:
     """
     用户登录
 
     使用OAuth2密码流进行身份验证，成功后返回JWT访问令牌。
+    支持使用用户名或手机号登录。
 
     Args:
         form_data: OAuth2密码表单（username和password）
+        db: 数据库会话（从依赖注入获取）
 
     Returns:
         TokenResponse: 包含访问令牌、令牌类型和过期时间
@@ -122,7 +141,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> TokenRespon
     Raises:
         HTTPException: 用户名或密码错误时返回401
     """
-    user = authenticate_user(form_data.username, form_data.password)
+    user = await authenticate_user(form_data.username, form_data.password, db)
 
     if not user:
         raise HTTPException(
@@ -152,14 +171,18 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> TokenRespon
 
 
 @router.post("/login/json", response_model=TokenResponse)
-async def login_json(login_data: LoginRequest) -> TokenResponse:
+async def login_json(
+    login_data: LoginRequest, db: AsyncSession = Depends(get_db)
+) -> TokenResponse:
     """
     用户登录（JSON格式）
 
     与/login端点功能相同，但接受JSON格式的请求体。
+    支持使用用户名或手机号登录。
 
     Args:
         login_data: 包含username和password的JSON对象
+        db: 数据库会话（从依赖注入获取）
 
     Returns:
         TokenResponse: 包含访问令牌、令牌类型和过期时间
@@ -167,7 +190,7 @@ async def login_json(login_data: LoginRequest) -> TokenResponse:
     Raises:
         HTTPException: 用户名或密码错误时返回401
     """
-    user = authenticate_user(login_data.username, login_data.password)
+    user = await authenticate_user(login_data.username, login_data.password, db)
 
     if not user:
         raise HTTPException(
