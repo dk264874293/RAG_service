@@ -16,3 +16,7 @@ prometheus-client
 sentence-transformers
 sqlalchemy
 aiomysql
+pytest
+pytest-asyncio
+httpx
+pytest-cov
