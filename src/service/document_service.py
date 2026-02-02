@@ -1,3 +1,11 @@
+'''
+Author: 汪培良 rick_wang@yunquna.com
+Date: 2026-01-29 11:39:32
+LastEditors: 汪培良 rick_wang@yunquna.com
+LastEditTime: 2026-02-02 18:24:55
+FilePath: /RAG_service/src/service/document_service.py
+Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+'''
 import json
 import logging
 from datetime import datetime
@@ -6,7 +14,6 @@ from typing import List
 
 import aiofiles
 
-from config import settings
 from src.pipeline.document_processor import DocumentProcessingPipeline
 from src.extractor.ocr_module.core.exceptions import OCRError
 
@@ -22,10 +29,11 @@ class DocumentService:
         self, file_path: str, file_id: str, file_name: str
     ) -> tuple[bool, str, List]:
         try:
+            logger.info(f"开始处理文件: {file_name} (ID: {file_id})")
+            logger.info(f"全局参数: {self.settings}")
             config = {
                 "enable_pdf_ocr": self.settings.enable_pdf_ocr,
                 "ocr_engine": self.settings.ocr_engine,
-                "ocr_version": self.settings.ocr_engine,
                 "ocr_confidence_threshold": self.settings.ocr_confidence_threshold,
                 "ocr_module_confidence_threshold": self.settings.ocr_module_confidence_threshold,
                 "ocr_api_endpoint": self.settings.ocr_api_endpoint,
@@ -64,29 +72,6 @@ class DocumentService:
             async with aiofiles.open(result_file, "w", encoding="utf-8") as f:
                 await f.write(json.dumps(result_data, ensure_ascii=False, indent=2))
 
-            # Vectorize and index documents
-            try:
-                from src.api.dependencies import (
-                    get_embedding_service,
-                    get_vector_store,
-                )
-                from src.vector.document_indexer import DocumentIndexer
-
-                embedding_service = get_embedding_service()
-                vector_store = get_vector_store()
-                indexer = DocumentIndexer(
-                    self.settings, vector_store, embedding_service
-                )
-
-                await indexer.index_document(file_id, documents)
-                logger.info(f"Document vectorization successful: file_id={file_id}")
-
-            except Exception as e:
-                logger.error(
-                    f"Document vectorization failed: file_id={file_id}, error={e}"
-                )
-                # Vectorization failure doesn't block main flow
-
             return True, "处理成功", documents
 
         except OCRError as e:
@@ -105,29 +90,3 @@ class DocumentService:
             preview += "..."
 
         return preview
-
-    async def delete_document(self, file_id: str) -> int:
-        """
-        Delete document vectors from FAISS index
-
-        Args:
-            file_id: File ID to delete
-
-        Returns:
-            Number of documents deleted
-        """
-        try:
-            from src.api.dependencies import get_vector_store
-
-            vector_store = get_vector_store()
-            deleted_count = await vector_store.delete_documents(file_id)
-
-            await vector_store.save_index()
-
-            logger.info(
-                f"Deleted {deleted_count} document vectors for file_id={file_id}"
-            )
-            return deleted_count
-        except Exception as e:
-            logger.error(f"Failed to delete document vectors: {e}")
-            return 0

@@ -2,7 +2,7 @@
 Author: 汪培良 rick_wang@yunquna.com
 Date: 2026-01-05 06:06:30
 LastEditors: 汪培良 rick_wang@yunquna.com
-LastEditTime: 2026-01-06 07:23:18
+LastEditTime: 2026-02-02 15:55:42
 FilePath: /RAG_service/loader/extractor_base.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
@@ -35,3 +35,23 @@ class BaseExtractor(ABC):
     @abstractmethod
     def extract(self) -> list:
         raise NotImplementedError
+
+    def _extract_images(self, page):
+        """
+        从 PDF 页面提取图片并执行OCR
+
+        参数：
+            page: pypdfium2 页面对象。
+
+        返回：
+            包含OCR文本的字符串。
+        """
+        # 检查是否启用OCR
+        if not self.enable_ocr:
+            # OCR未启用：使用默认方法（仅标记图片）
+            return "![从 PDF 页面提取的图片]"
+
+        # 根据实验变体决定处理方式
+        if self.experiment_variant == "control":
+            # 控制组：使用默认方法（仅标记图片）
+            return "![从 PDF 页面提取的图片]"

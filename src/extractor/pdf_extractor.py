@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 class PdfExtractorConfig(BaseModel):
     """PDF 提取器配置模型，用于参数校验"""
 
+    model_config = {"extra": "allow"}
+
     min_image_size: int = Field(
         default=100, gt=0, le=10000, description="最小图片尺寸（像素）"
     )
@@ -152,12 +154,14 @@ class PdfExtractor(BaseExtractor):
         super().__init__(file_path, tenant_id, user_id, file_cache_key)
         # 使用 Pydantic 校验配置参数
         try:
+            logger.info(f'self->config: {config}')  # 修复日志格式
             self.config_model = PdfExtractorConfig(**(config or {}))
-            self.config = self.config_model.dict()
+            self.config = {**(config or {}), **self.config_model.model_dump()}
         except Exception as e:
             raise ConfigurationError(f"PDF 提取器配置无效: {e}") from e
 
         self.enable_ocr = enable_ocr
+        logger.info(f'enable_ocr: {enable_ocr}')  # 修复日志格式
         self.parse_mode = parse_mode
 
         # 验证解析模式
@@ -218,26 +222,16 @@ class PdfExtractor(BaseExtractor):
                 "ocr_module_confidence_threshold", pdf_extractor_threshold
             )
 
+           
             # 构建 OCRService 配置参数
-            ocr_kwargs = {
-                "engine": engine,
-                "ocr_version": self.config.get("ocr_version", "PaddleOCR-VL"),
-                "default_engine": engine,
-                "confidence_threshold": ocr_module_threshold,
-                "cache_ttl": self.config.get("cache_ttl", 3600),
-            }
-
-            # 添加引擎特定配置
-            if engine == "PaddleOCR-VL":
-                ocr_kwargs.update(
-                    {
-                        "api_endpoint": self.config.get("ocr_api_endpoint"),
-                        "api_key": self.config.get("ocr_api_key"),
-                        "output_dir": self.config.get("ocr_output_dir"),
-                    }
-                )
-
-            self.ocr_service = OCRService(**ocr_kwargs)
+            self.ocr_service = OCRService(engine=engine,
+                ocr_version=self.config.get("ocr_version", "PaddleOCR-VL"),
+                confidence_threshold=ocr_module_threshold,
+                cache_ttl=self.config.get("cache_ttl", 3600),
+                api_endpoint=self.config.get("ocr_api_endpoint"),
+                api_key=self.config.get("ocr_api_key"),
+                output_dir=self.config.get("ocr_output_dir"),
+            )
             self.pdf_extractor_threshold = pdf_extractor_threshold
 
             logger.info(
@@ -771,7 +765,7 @@ class PdfExtractor(BaseExtractor):
             "engine_name": self.ocr_service.engine_name,
             "engine_info": self.ocr_service.get_engine_info(),
             "experiment_variant": self.experiment_variant,
-            "cached_images": len(self.image_cache),
+            "cached_images": len(self._ocr_result_store),
             "config": {
                 "ocr_engine": self.config.get("ocr_engine", "paddle-api"),
                 "enable_ab_testing": self.config.get("enable_ab_testing", False),

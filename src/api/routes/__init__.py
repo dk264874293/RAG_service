@@ -4,6 +4,7 @@ from .health import router as health_router
 from .retrieval import router as retrieval_router
 from .compliance import router as compliance_router
 from .auth import router as auth_router
+from .vector import router as vector_router
 
 __all__ = [
     "upload_router",
@@ -12,4 +13,5 @@ __all__ = [
     "retrieval_router",
     "compliance_router",
     "auth_router",
+    "vector_router",
 ]

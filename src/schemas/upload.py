@@ -1,5 +1,24 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+
+
+class MarkdownPage(BaseModel):
+    """Markdown页面模型"""
+
+    page_number: int = Field(..., description="页码/块序号", ge=1)
+    title: str = Field(..., description="页面标题")
+    content: str = Field(..., description="页面内容")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="页面元数据")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "page_number": 1,
+                "title": "第 1 部分",
+                "content": "这是文档第一部分的内容...",
+                "metadata": {"page": 1, "chunk_index": 0},
+            }
+        }
 
 
 class UploadResponse(BaseModel):
@@ -13,6 +32,9 @@ class UploadResponse(BaseModel):
     file_type: str = Field(..., description="文件类型扩展名（如 .pdf）")
     processing_status: str = Field(..., description="文档处理状态: success/failed")
     content_preview: Optional[str] = Field(None, description="内容预览（最多500字符）")
+    markdown_content: Optional[List[MarkdownPage]] = Field(
+        None, description="文档内容的Markdown格式列表，按页/块组织"
+    )
 
     class Config:
         schema_extra = {
@@ -25,6 +47,14 @@ class UploadResponse(BaseModel):
                 "file_type": ".pdf",
                 "processing_status": "success",
                 "content_preview": "这是文档的前500个字符内容预览...",
+                "markdown_content": [
+                    {
+                        "page_number": 1,
+                        "title": "第 1 部分",
+                        "content": "这是文档第一部分的内容...",
+                        "metadata": {"page": 1},
+                    }
+                ],
             }
         }
 

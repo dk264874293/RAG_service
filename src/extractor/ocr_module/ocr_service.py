@@ -35,6 +35,8 @@ class OCRService:
         # 更新动态配置
         if kwargs:
             self.config_manager.update_config(**kwargs)
+        self.kwargs = kwargs
+        self.logger.info(f"OCR服务初始化参数 ---->>>>: {self.config}")
         
         # 选择引擎
         self.engine_name = engine or self.config.default_engine
@@ -62,7 +64,7 @@ class OCRService:
             engine_config = self._get_engine_config()
             self.ocr_engine = OCRFactory.create_engine(
                 self.engine_name,
-                engine_config
+                config = engine_config
             )
             self.ocr_engine.initialize()
             
@@ -82,6 +84,8 @@ class OCRService:
             engine_specific = getattr(self.config, engine_config_key)
             config_dict.update(engine_specific)
         
+        # 添加所有传入的 kwargs，确保 api_endpoint 等参数被包含
+        config_dict.update(self.kwargs)
         return config_dict
     
     def recognize(self, 

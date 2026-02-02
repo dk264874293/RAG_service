@@ -105,7 +105,7 @@ class DocumentProcessingPipeline:
         """处理PDF文件"""
         # 根据配置选择是否启用OCR
         enable_ocr = self.config.get("enable_pdf_ocr", True)
-
+        logger.info(f"_process_pdf ---> {self.config}")
         # 统一使用增强版PDF提取器
         extractor = PdfExtractor(
             file_path,

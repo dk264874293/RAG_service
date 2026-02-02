@@ -9,6 +9,7 @@ from src.schemas.upload import (
     UploadResponse,
     BatchUploadResponse,
     UploadHistoryList,
+    MarkdownPage,
 )
 from src.service.upload_service import UploadService
 from src.exceptions import ValidationError
@@ -36,6 +37,13 @@ async def upload_file(
 
         logger.info(f"文件上传成功: {file.filename}, ID: {result['file_id']}")
 
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["process_msg"])
+
+        markdown_pages = result.get("markdown_content")
+        if markdown_pages:
+            markdown_pages = [MarkdownPage(**page) for page in markdown_pages]
+
         return UploadResponse(
             status="success",
             message=f"文件上传成功: {file.filename}",
@@ -45,6 +53,7 @@ async def upload_file(
             file_type=result["file_type"],
             processing_status="success" if result["success"] else "failed",
             content_preview=result["content_preview"],
+            markdown_content=markdown_pages,
         )
 
     except ValidationError as e:
@@ -89,6 +98,13 @@ async def upload_files(
 
                 result = await upload_service.process_upload(file)
 
+                if not result["success"]:
+                    raise HTTPException(status_code=400, detail=result["process_msg"])
+
+                markdown_pages = result.get("markdown_content")
+                if markdown_pages:
+                    markdown_pages = [MarkdownPage(**page) for page in markdown_pages]
+
                 return UploadResponse(
                     status="success" if result["success"] else "failed",
                     message=result["process_msg"],
@@ -98,6 +114,7 @@ async def upload_files(
                     file_type=result["file_type"],
                     processing_status="success" if result["success"] else "failed",
                     content_preview=result["content_preview"],
+                    markdown_content=markdown_pages,
                 )
 
             except Exception as e:
@@ -236,6 +253,10 @@ async def update_uploaded_file(
         result = await upload_service.process_upload(file)
         logger.info(f"文件更新成功: {file.filename}, ID: {result['file_id']}")
 
+        markdown_pages = result.get("markdown_content")
+        if markdown_pages:
+            markdown_pages = [MarkdownPage(**page) for page in markdown_pages]
+
         return UploadResponse(
             status="success",
             message=f"文件更新成功: {file.filename}",
@@ -245,6 +266,7 @@ async def update_uploaded_file(
             file_type=result["file_type"],
             processing_status="success" if result["success"] else "failed",
             content_preview=result["content_preview"],
+            markdown_content=markdown_pages,
         )
 
     except ValueError as e:

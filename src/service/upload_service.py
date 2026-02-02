@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 from datetime import datetime
@@ -10,21 +9,20 @@ import sqlite3
 
 from fastapi import UploadFile
 
-from config import settings
 from src.service.document_service import DocumentService
-from src.exceptions import ValidationError, StorageError
+from src.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
 
 class UploadService:
-    def __init__(self, settings_obj):
+    def __init__(self, settings_obj, vector_service=None):
         self.settings = settings_obj
         self.upload_dir = Path(settings_obj.upload_dir)
         self.processed_dir = Path("./data/processed")
         self.document_service = DocumentService(settings_obj)
+        self.vector_service = vector_service
 
-        # 初始化 SQLite 持久化存储
         self.db_path = Path("./data/uploads.db")
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
@@ -87,6 +85,25 @@ class UploadService:
 
         return file_id, saved_path
 
+    def _generate_markdown_pages(self, documents: list) -> List[Dict[str, Any]]:
+        if not documents:
+            return []
+
+        markdown_pages = []
+        for idx, doc in enumerate(documents, 1):
+            page = {
+                "page_number": idx,
+                "title": f"第 {idx} 部分",
+                "content": doc.page_content,
+                "metadata": {
+                    "doc_id": doc.id_ if hasattr(doc, "id_") else str(idx),
+                    **(doc.metadata if hasattr(doc, "metadata") else {}),
+                },
+            }
+            markdown_pages.append(page)
+
+        return markdown_pages
+
     async def process_upload(self, file: UploadFile) -> dict:
         file_id, saved_path = await self.save_file(file)
 
@@ -99,10 +116,24 @@ class UploadService:
         )
 
         content_preview = None
+        markdown_content = None
         if success and documents:
             content_preview = self.document_service.get_content_preview(
                 documents[0].page_content
             )
+            markdown_content = self._generate_markdown_pages(documents)
+
+            if self.vector_service:
+                try:
+                    vector_success = await self.vector_service.vectorize_document(
+                        file_id, documents
+                    )
+                    if vector_success:
+                        logger.info(f"Document vectorized successfully: {file_id}")
+                    else:
+                        logger.warning(f"Document vectorization failed: {file_id}")
+                except Exception as e:
+                    logger.error(f"Vectorization error for {file_id}: {e}")
 
         self.add_to_history(
             file_id,
@@ -122,6 +153,7 @@ class UploadService:
             "success": success,
             "process_msg": process_msg,
             "content_preview": content_preview,
+            "markdown_content": markdown_content,
             "documents": documents,
         }
 
@@ -260,9 +292,14 @@ class UploadService:
             result_file.unlink()
             logger.info(f"已删除处理结果: {result_file.name}")
 
-        deleted_vectors = await self.document_service.delete_document(file_id)
-        if deleted_vectors > 0:
-            logger.info(f"已从向量索引中删除 {deleted_vectors} 个文档块")
+        deleted_vectors = 0
+        if self.vector_service:
+            try:
+                deleted_vectors = await self.vector_service.delete_vectors(file_id)
+                if deleted_vectors > 0:
+                    logger.info(f"已从向量索引中删除 {deleted_vectors} 个文档块")
+            except Exception as e:
+                logger.error(f"删除向量失败: {e}")
 
         conn = sqlite3.connect(str(self.db_path))
         cursor = conn.cursor()

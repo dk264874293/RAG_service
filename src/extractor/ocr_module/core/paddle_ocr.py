@@ -33,6 +33,7 @@ class PaddleOCRWrapper(BaseOCR):
         self.api_key = config.get("api_key", None)
         self.output_dir = config.get("output_dir", None)
         self.result_saver = None
+        self.logger.info("初始化 PaddleOCRWrapper", config)
 
         self._validate_config()
         self._detect_version()
@@ -41,8 +42,7 @@ class PaddleOCRWrapper(BaseOCR):
     def _validate_config(self):
         """验证配置参数"""
         self.logger.info("验证配置参数", self.config)
-        ocr_version = self.config.get("ocr_version", "PaddleOCR-VL")
-
+        ocr_version = self.config.get("ocr_engine", "PaddleOCR-VL")
         if ocr_version not in ["PP-StructureV3", "PaddleOCR-VL", "PP-OCRv5"]:
             raise OCRConfigError(f"不支持的 OCR 版本: {ocr_version}")
 

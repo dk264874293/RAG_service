@@ -16,6 +16,7 @@ from src.api.routes import (
     health_router,
     retrieval_router,
     compliance_router,
+    vector_router,
 )
 from src.api.routes import auth as auth_router
 from src.middleware.rate_limit import limiter, rate_limit_exceeded_handler
@@ -82,6 +83,7 @@ app.add_middleware(
 )
 
 app.include_router(upload_router)
+app.include_router(vector_router)
 app.include_router(markdown_router)
 app.include_router(health_router)
 app.include_router(retrieval_router)

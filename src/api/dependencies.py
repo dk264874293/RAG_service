@@ -8,31 +8,36 @@ from src.service.markdown_service import MarkdownService
 
 @lru_cache(maxsize=1)
 def get_settings() -> settings:
-    """获取配置对象（使用 LRU 缓存，避免重复实例化）"""
     return settings
 
 
 @lru_cache(maxsize=1)
 def get_upload_service() -> UploadService:
-    """获取上传服务实例（使用单例模式）"""
-    return UploadService(get_settings())
+    vector_service = get_vector_service()
+    return UploadService(get_settings(), vector_service)
 
 
 @lru_cache(maxsize=1)
 def get_document_service() -> DocumentService:
-    """获取文档服务实例（使用单例模式）"""
     return DocumentService(get_settings())
 
 
 @lru_cache(maxsize=1)
 def get_markdown_service() -> MarkdownService:
-    """获取 Markdown 服务实例（使用单例模式）"""
     return MarkdownService(get_settings())
 
 
 @lru_cache(maxsize=1)
+def get_vector_service():
+    from src.service.vector_service import VectorService
+
+    embedding_service = get_embedding_service()
+    vector_store = get_vector_store()
+    return VectorService(get_settings(), vector_store, embedding_service)
+
+
+@lru_cache(maxsize=1)
 def get_embedding_service():
-    """Get embedding service instance (singleton pattern)"""
     from src.vector.embed_service import EmbeddingService
 
     return EmbeddingService(get_settings())
@@ -40,7 +45,6 @@ def get_embedding_service():
 
 @lru_cache(maxsize=1)
 def get_vector_store():
-    """Get vector store instance (singleton pattern)"""
     embedding_service = get_embedding_service()
     from src.vector.vector_store import FAISSVectorStore
 
@@ -49,7 +53,6 @@ def get_vector_store():
 
 @lru_cache(maxsize=1)
 def get_retrieval_service():
-    """Get retrieval service instance (singleton pattern)"""
     embedding_service = get_embedding_service()
     vector_store = get_vector_store()
     from src.vector.retrieval_service import RetrievalService
@@ -59,7 +62,6 @@ def get_retrieval_service():
 
 @lru_cache(maxsize=1)
 def get_retrieval_strategy():
-    """Get retrieval strategy instance based on config (singleton pattern)"""
     from src.retrieval.strategies.factory import RetrievalStrategyFactory
 
     embedding_service = get_embedding_service()
