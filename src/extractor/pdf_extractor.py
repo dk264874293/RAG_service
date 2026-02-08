@@ -154,14 +154,14 @@ class PdfExtractor(BaseExtractor):
         super().__init__(file_path, tenant_id, user_id, file_cache_key)
         # 使用 Pydantic 校验配置参数
         try:
-            logger.info(f'self->config: {config}')  # 修复日志格式
+            logger.info(f"self->config: {config}")  # 修复日志格式
             self.config_model = PdfExtractorConfig(**(config or {}))
             self.config = {**(config or {}), **self.config_model.model_dump()}
         except Exception as e:
             raise ConfigurationError(f"PDF 提取器配置无效: {e}") from e
 
         self.enable_ocr = enable_ocr
-        logger.info(f'enable_ocr: {enable_ocr}')  # 修复日志格式
+        logger.info(f"enable_ocr: {enable_ocr}")  # 修复日志格式
         self.parse_mode = parse_mode
 
         # 验证解析模式
@@ -222,9 +222,9 @@ class PdfExtractor(BaseExtractor):
                 "ocr_module_confidence_threshold", pdf_extractor_threshold
             )
 
-           
             # 构建 OCRService 配置参数
-            self.ocr_service = OCRService(engine=engine,
+            self.ocr_service = OCRService(
+                engine=engine,
                 ocr_version=self.config.get("ocr_version", "PaddleOCR-VL"),
                 confidence_threshold=ocr_module_threshold,
                 cache_ttl=self.config.get("cache_ttl", 3600),
@@ -358,12 +358,7 @@ class PdfExtractor(BaseExtractor):
             # OCR未启用：使用原始方法（仅标记图片）
             return super()._extract_images(page)
 
-        # 根据实验变体决定处理方式
-        if self.experiment_variant == "control":
-            # 控制组：使用原始方法（仅标记图片）
-            return super()._extract_images(page)
-
-        # OCR处理组：提取图片并执行OCR
+        # OCR处理：提取图片并执行OCR
         image_content = []
 
         try:

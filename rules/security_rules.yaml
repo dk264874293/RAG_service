@@ -1,0 +1,277 @@
+name: security_rules
+version: 1.0.0
+description: 安全规范和最佳实践
+scope: backend
+
+# 认证和授权
+authentication:
+  # 令牌认证
+  token_authentication:
+    enabled: true
+    token_type: Bearer
+    secret_key: ${JWT_SECRET_KEY}
+    algorithm: HS256
+    expiration_hours: 24
+
+  # 密码哈希
+  password_hashing:
+    algorithm: bcrypt
+    rounds: 12
+
+  # 令牌刷新
+  token_refresh:
+    enabled: false
+    refresh_expiration_hours: 168  # 7天
+
+# 授权控制
+authorization:
+  # 权限模型
+  permission_model: rbac
+
+  # 角色定义
+  roles:
+    admin:
+      permissions:
+        - upload:*
+        - retrieval:*
+        - compliance:*
+        - vector:*
+        - markdown:*
+        - user:*
+
+    user:
+      permissions:
+        - upload:read
+        - retrieval:read
+        - compliance:read
+        - vector:read
+        - markdown:read,write
+
+    guest:
+      permissions:
+        - health:read
+
+  # 资源访问控制
+  resource_access:
+    enabled: true
+    tenant_isolation: true
+    user_isolation: true
+
+# 输入验证
+input_validation:
+  # 通用验证
+  general:
+    enabled: true
+    sanitize_input: true
+    validate_content_type: true
+
+  # 文件上传验证
+  file_upload:
+    max_file_size_mb: 50
+    allowed_types:
+      - .pdf
+      - .docx
+      - .doc
+      - .txt
+      - .md
+      - .html
+      - .pptx
+      - .xlsx
+
+    # 病毒扫描
+    virus_scanning:
+      enabled: false
+
+  # SQL注入防护
+  sql_injection:
+    enabled: true
+    use_parameterized_queries: true
+    no_raw_sql: true
+
+  # XSS防护
+  xss_protection:
+    enabled: true
+    sanitize_html: true
+    escape_output: true
+
+  # CSRF防护
+  csrf_protection:
+    enabled: false
+
+  # 命令注入防护
+  command_injection:
+    enabled: true
+    no_shell_commands: true
+    validate_filenames: true
+
+# 数据保护
+data_protection:
+  # 敏感数据加密
+  encryption:
+    enabled: true
+    algorithm: AES-256
+    encrypt_at_rest: true
+    encrypt_in_transit: true
+
+  # 数据脱敏
+  data_masking:
+    enabled: true
+    fields:
+      - email
+      - phone
+      - id_card
+
+  # 数据备份
+  backup:
+    enabled: false
+    interval_hours: 24
+    retention_days: 30
+
+  # 数据删除
+  deletion:
+    soft_delete: true
+    hard_delete: false
+    retention_days: 30
+
+# API安全
+api_security:
+  # CORS配置
+  cors:
+    enabled: true
+    allow_origins: "*"
+    allow_credentials: true
+    allow_methods: "*"
+    allow_headers: "*"
+
+  # 限流
+  rate_limiting:
+    enabled: true
+    default_limit: 60  # requests per minute
+    burst_limit: 10
+    storage: memory
+
+  # 请求验证
+  request_validation:
+    enabled: true
+    validate_headers: true
+    validate_body: true
+
+  # 响应头
+  security_headers:
+    enabled: true
+    headers:
+      - X-Content-Type-Options: nosniff
+      - X-Frame-Options: DENY
+      - X-XSS-Protection: 1; mode=block
+      - Strict-Transport-Security: max-age=31536000
+      - Content-Security-Policy: default-src 'self'
+
+  # API密钥
+  api_keys:
+    enabled: false
+
+# 日志和审计
+logging:
+  # 安全日志
+  security_logging:
+    enabled: true
+    log_authentication: true
+    log_authorization: true
+    log_data_access: true
+    log_data_modification: true
+
+  # 敏感信息过滤
+  sensitive_data_filtering:
+    enabled: true
+    fields:
+      - password
+      - token
+      - api_key
+      - secret
+
+  # 日志保留
+  retention:
+    security_logs_days: 90
+    audit_logs_days: 365
+
+# 错误处理
+error_handling:
+  # 错误信息
+  error_messages:
+    generic: "An error occurred"
+    detailed: false
+
+  # 堆栈跟踪
+  stack_traces:
+    enabled: false
+    log_only: true
+
+  # 调试模式
+  debug_mode:
+    enabled: false
+    production: false
+
+# 环境变量
+environment_variables:
+  # 必需变量
+  required:
+    - DASHSCOPE_API_KEY
+    - JWT_SECRET_KEY
+
+  # 敏感变量
+  sensitive:
+    - DASHSCOPE_API_KEY
+    - JWT_SECRET_KEY
+    - DATABASE_URL
+
+  # 默认值
+  defaults:
+    DEBUG: "false"
+    LOG_LEVEL: "INFO"
+
+# 依赖安全
+dependency_security:
+  # 依赖更新
+  updates:
+    enabled: true
+    check_frequency: weekly
+
+  # 漏洞扫描
+  vulnerability_scanning:
+    enabled: false
+    tool: safety
+
+  # 禁用不安全依赖
+  forbidden_packages:
+    - pickle
+    - eval
+
+# 运行时安全
+runtime_security:
+  # 进程隔离
+  process_isolation:
+    enabled: false
+
+  # 资源限制
+  resource_limits:
+    max_memory_mb: 1024
+    max_cpu_percent: 80
+
+  # 超时保护
+  timeout_protection:
+    enabled: true
+    default_timeout: 30
+
+# 合规性
+compliance:
+  # GDPR
+  gdpr:
+    enabled: false
+
+  # 数据本地化
+  data_localization:
+    enabled: false
+
+  # 审计追踪
+  audit_trail:
+    enabled: false

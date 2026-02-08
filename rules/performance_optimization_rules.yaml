@@ -1,0 +1,263 @@
+name: performance_optimization_rules
+version: 1.0.0
+description: 性能优化和监控规则
+scope: backend
+
+# 异步处理
+async_operations:
+  # 异步I/O
+  async_io:
+    enabled: true
+    prefer_async: true
+    use_aiofiles: true
+    use_asyncio_to_thread: true
+
+  # 并发控制
+  concurrency:
+    max_workers: 5
+    semaphore_limit: 3
+    batch_size: 100
+
+  # 超时设置
+  timeouts:
+    default: 30
+    upload: 300
+    retrieval: 10
+    compliance: 120
+    embedding: 60
+
+# 缓存策略
+caching:
+  # 内存缓存
+  memory:
+    enabled: true
+    use_lru_cache: true
+    max_size: 128
+
+  # 缓存配置
+  configs:
+    settings:
+      max_size: 1
+
+    services:
+      upload_service:
+        max_size: 1
+      document_service:
+        max_size: 1
+      markdown_service:
+        max_size: 1
+      vector_service:
+        max_size: 1
+      embedding_service:
+        max_size: 1
+      vector_store:
+        max_size: 1
+      retrieval_service:
+        max_size: 1
+
+    retrieval_strategy:
+      max_size: 1
+
+# 批处理优化
+batch_processing:
+  # 批量大小
+  batch_sizes:
+    embedding: 100
+    add_to_index: 100
+    upload: 10
+
+  # 并发批处理
+  parallel_batches:
+    enabled: true
+    max_parallel: 3
+
+# 数据库优化
+database:
+  # 连接池
+  connection_pool:
+    enabled: true
+    max_connections: 10
+    min_connections: 2
+
+  # 查询优化
+  query_optimization:
+    enabled: true
+    use_indexes: true
+    limit_results: true
+
+  # 批量操作
+  bulk_operations:
+    enabled: true
+    bulk_insert: true
+    bulk_update: true
+
+# 向量索引优化
+vector_index:
+  # FAISS索引
+  faiss:
+    index_type: IndexFlatL2
+    dimension: 1536
+
+  # 索引管理
+  management:
+    save_interval: 100
+    rebuild_threshold: 0.3
+    soft_delete: true
+
+  # 检索优化
+  retrieval:
+    search_k_multiplier: 3
+    enable_reranking: false
+    max_results: 20
+
+# 内存管理
+memory:
+  # 内存限制
+  limits:
+    max_memory_mb: 1024
+    warning_threshold: 0.8
+
+  # 内存清理
+  cleanup:
+    enabled: true
+    interval_seconds: 300
+    gc_threshold: 0.7
+
+  # 对象池
+  object_pooling:
+    enabled: false
+
+# 文件处理优化
+file_processing:
+  # 文件读取
+  reading:
+    use_asyncio: true
+    chunk_size: 4096
+
+  # 文件写入
+    use_asyncio: true
+    chunk_size: 4096
+
+  # 文件缓存
+  caching:
+    enabled: false
+
+# OCR优化
+ocr:
+  # OCR引擎
+  engines:
+    paddle:
+      enabled: true
+      confidence_threshold: 0.5
+
+    tesseract:
+      enabled: false
+      confidence_threshold: 0.6
+
+  # OCR优化
+  optimization:
+    batch_processing: true
+    skip_text_pages: true
+    cache_results: true
+
+# 嵌入优化
+embedding:
+  # 批量嵌入
+  batch_embedding:
+    enabled: true
+    batch_size: 100
+
+  # 嵌入缓存
+  caching:
+    enabled: false
+
+  # 模型选择
+  model:
+    default: text-embedding-v2
+    dimension: 1536
+
+# 性能监控
+monitoring:
+  # Prometheus指标
+  prometheus:
+    enabled: true
+    endpoint: /metrics
+    collect_default: true
+
+  # 性能指标
+  metrics:
+    enabled: true
+    track_requests: true
+    track_errors: true
+    track_latency: true
+    track_memory: true
+
+  # 慢查询日志
+  slow_queries:
+    enabled: true
+    threshold_ms: 1000
+
+  # 性能中间件
+  middleware:
+    enabled: true
+    track_latency: true
+    track_memory: true
+
+# 性能基准
+benchmarks:
+  # 文档嵌入
+  document_embedding:
+    target_latency_ms: 500
+    actual_latency_ms: 300
+
+  # 检索响应
+  retrieval_response:
+    target_latency_ms: 100
+    actual_latency_ms: 80
+
+  # 索引容量
+  index_capacity:
+    target_documents: 10000
+    actual_documents: 10000
+
+  # 检索准确性
+  retrieval_accuracy:
+    target_score: 0.7
+    actual_score: 0.75
+
+  # 并发性能
+  concurrency:
+    target_qps: 100
+    actual_qps: 120
+
+# 优化建议
+optimization_suggestions:
+  # 启用重排序
+  reranking:
+    recommendation: 启用BGE重排序以提高检索精度
+    impact: high
+    effort: medium
+
+  # 使用GPU加速
+  gpu_acceleration:
+    recommendation: 使用GPU加速嵌入计算
+    impact: high
+    effort: high
+
+  # 实现嵌入缓存
+  embedding_cache:
+    recommendation: 实现嵌入缓存以减少重复计算
+    impact: medium
+    effort: low
+
+  # 优化FAISS索引
+  faiss_optimization:
+    recommendation: 使用HNSW或IVFFlat索引提高大规模检索性能
+    impact: high
+    effort: medium
+
+  # 实现请求批处理
+  request_batching:
+    recommendation: 实现请求批处理以提高吞吐量
+    impact: medium
+    effort: medium

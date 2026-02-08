@@ -1,0 +1,94 @@
+name: document_processor_agent
+version: 1.0.0
+description: |
+  文档处理智能体
+  负责处理各种格式的文档（PDF、Word、Excel、PPT、HTML、Markdown等），
+  包括内容提取、文本清洗、智能分块和元数据增强。
+
+capabilities:
+  - 文档格式检测
+  - 内容提取（支持PDF、Word、Excel、PPT、HTML、Markdown等）
+  - OCR识别（可选，针对扫描版PDF）
+  - 文本清洗和标准化
+  - 智能分块（AdaptiveChunker）
+  - 元数据增强（文件哈希、文件类型等）
+
+dependencies:
+  - src.pipeline.document_processor.DocumentProcessingPipeline
+  - src.extractor.pdf_extractor.PdfExtractor
+  - src.extractor.word_extractor.WordExtractor
+  - src.pipeline.adaptive_chunker.AdaptiveChunker
+
+input_format:
+  type: object
+  properties:
+    file_path:
+      type: string
+      description: 文件路径
+    enable_ocr:
+      type: boolean
+      default: false
+      description: 是否启用OCR
+    enable_chunking:
+      type: boolean
+      default: true
+      description: 是否启用智能分块
+    chunking_strategy:
+      type: string
+      default: adaptive
+      enum: [adaptive, fixed_size, semantic]
+      description: 分块策略
+    metadata:
+      type: object
+      description: 额外元数据
+
+output_format:
+  type: array
+  items:
+    type: object
+    properties:
+      page_content:
+        type: string
+        description: 文档内容或分块内容
+      metadata:
+        type: object
+        description: 文档元数据
+
+workflow:
+  - step: detect_format
+    description: 检测文件格式
+    handler: _detect_format
+  - step: extract_content
+    description: 提取文档内容
+    handler: _process_{format}
+  - step: clean_content
+    description: 文本清洗和标准化
+    handler: _clean_content
+  - step: chunk_document
+    description: 智能分块（可选）
+    handler: chunk_document
+    condition: enable_chunking
+  - step: enhance_metadata
+    description: 元数据增强
+    handler: _enhance_metadata
+
+error_handling:
+  UnsupportedFormatError:
+    message: 不支持的文件格式: {format}
+    action: 返回错误信息并记录日志
+  OCRError:
+    message: OCR识别失败
+    action: 记录日志，尝试继续处理
+
+performance:
+  timeout: 300
+  max_file_size_mb: 50
+  supported_formats:
+    - pdf
+    - docx
+    - doc
+    - txt
+    - md
+    - html
+    - pptx
+    - xlsx

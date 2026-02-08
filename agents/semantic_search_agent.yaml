@@ -1,0 +1,132 @@
+name: semantic_search_agent
+version: 1.0.0
+description: |
+  语义检索智能体
+  提供多种检索策略的语义搜索功能，支持向量检索、混合检索和父子索引检索。
+
+capabilities:
+  - 向量相似度搜索
+  - 混合检索（向量 + BM25）
+  - 父子索引检索
+  - 重排序（可选）
+  - 元数据过滤
+  - 检索策略动态切换
+
+dependencies:
+  - src.vector.retrieval_service.RetrievalService
+  - src.retrieval.strategies.factory.RetrievalStrategyFactory
+  - src.retrieval.strategies.vector_strategy.VectorRetrievalStrategy
+  - src.retrieval.strategies.hybrid_strategy.HybridRetrievalStrategy
+  - src.retrieval.strategies.parent_child_strategy.ParentChildRetrievalStrategy
+  - src.vector.embed_service.EmbeddingService
+
+input_format:
+  type: object
+  properties:
+    query:
+      type: string
+      description: 搜索查询
+    k:
+      type: integer
+      default: 5
+      minimum: 1
+      maximum: 20
+      description: 返回结果数量
+    strategy:
+      type: string
+      enum: [vector, hybrid, parent_child]
+      default: vector
+      description: 检索策略
+    filters:
+      type: object
+      description: 元数据过滤条件
+    use_reranking:
+      type: boolean
+      default: false
+      description: 是否使用重排序
+
+output_format:
+  type: object
+  properties:
+    query:
+      type: string
+    strategy:
+      type: string
+    total:
+      type: integer
+    results:
+      type: array
+      items:
+        type: object
+        properties:
+          doc_id:
+            type: string
+          content:
+            type: string
+          metadata:
+            type: object
+          score:
+            type: number
+
+workflow:
+  - step: select_strategy
+    description: 选择检索策略
+    handler: select_strategy
+  - step: warmup_strategy
+    description: 预热策略（如果需要）
+    handler: warmup
+  - step: execute_search
+    description: 执行检索
+    handler: search
+  - step: apply_filters
+    description: 应用元数据过滤
+    handler: _apply_filters
+  - step: rerank_results
+    description: 重排序（可选）
+    handler: rerank
+    condition: use_reranking
+  - step: format_results
+    description: 格式化结果
+    handler: _format_results
+
+strategies:
+  vector:
+    description: 纯向量检索
+    advantages:
+      - 速度快
+      - 语义理解能力强
+    best_for:
+      - 语义查询
+      - 大规模文档集
+
+  hybrid:
+    description: 混合检索（向量 + BM25）
+    advantages:
+      - 结合语义和关键词匹配
+      - 精度更高
+    best_for:
+      - 专业术语检索
+      - 精确匹配需求
+
+  parent_child:
+    description: 父子索引检索
+    advantages:
+      - 提供更好的上下文
+      - 减少碎片化结果
+    best_for:
+      - 长文档检索
+      - 需要完整上下文的场景
+
+error_handling:
+  RetrievalError:
+    message: 检索失败
+    action: 记录日志，返回空结果
+  StrategyError:
+    message: 策略执行失败
+    action: 切换到默认策略（vector）
+
+performance:
+  default_k: 5
+  max_k: 20
+  search_timeout: 10
+  reranker_model: BAAI/bge-reranker-large

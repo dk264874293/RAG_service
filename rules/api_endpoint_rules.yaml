@@ -1,0 +1,244 @@
+name: api_endpoint_rules
+version: 1.0.0
+description: API端点设计和规范规则
+scope: backend
+
+# 路由规范
+routing:
+  # 路由前缀
+  prefixes:
+    upload: "/api/upload"
+    retrieval: "/api/retrieval"
+    compliance: "/api/compliance"
+    vector: "/api/vector"
+    markdown: "/api/markdown"
+    auth: "/api/auth"
+    health: "/health"
+
+  # 路由标签
+  tags:
+    upload: "文件上传"
+    retrieval: "语义检索"
+    compliance: "合规性检查"
+    vector: "向量管理"
+    markdown: "Markdown编辑"
+    auth: "认证"
+    health: "健康检查"
+
+# 响应模型规范
+response_models:
+  # 成功响应
+  success:
+    type: object
+    required: [status, message]
+    properties:
+      status:
+        type: string
+        enum: [success]
+      message:
+        type: string
+
+  # 错误响应
+  error:
+    type: object
+    required: [status, error]
+    properties:
+      status:
+        type: string
+        enum: [error]
+      error:
+        type: object
+        properties:
+          code:
+            type: string
+          message:
+            type: string
+          details:
+            type: object
+
+  # 分页响应
+  paginated:
+    type: object
+    required: [items, total, page, page_size]
+    properties:
+      items:
+        type: array
+      total:
+        type: integer
+      page:
+        type: integer
+      page_size:
+        type: integer
+
+# HTTP状态码规范
+status_codes:
+  # 成功
+  success:
+    200: OK
+    201: Created
+    204: No Content
+
+  # 客户端错误
+  client_error:
+    400: Bad Request
+    401: Unauthorized
+    403: Forbidden
+    404: Not Found
+    409: Conflict
+    422: Unprocessable Entity
+    429: Too Many Requests
+
+  # 服务器错误
+  server_error:
+    500: Internal Server Error
+    502: Bad Gateway
+    503: Service Unavailable
+
+# 限流规范
+rate_limiting:
+  # 默认限制
+  default:
+    requests_per_minute: 60
+    requests_per_hour: 1000
+
+  # 特定端点限制
+  endpoints:
+    upload:
+      requests_per_minute: 30
+      requests_per_hour: 500
+
+    retrieval:
+      requests_per_minute: 120
+      requests_per_hour: 2000
+
+    compliance:
+      requests_per_minute: 20
+      requests_per_hour: 300
+
+# 认证规范
+authentication:
+  # 令牌认证
+  token:
+    type: Bearer
+    header_name: Authorization
+    token_prefix: Bearer
+
+  # 保护的路由
+  protected_routes:
+    - /api/upload/*
+    - /api/retrieval/*
+    - /api/compliance/*
+    - /api/vector/*
+
+  # 公开路由
+  public_routes:
+    - /health/*
+    - /docs
+    - /openapi.json
+
+# 依赖注入规范
+dependency_injection:
+  # 单例服务
+  singletons:
+    - UploadService
+    - DocumentService
+    - MarkdownService
+    - VectorService
+    - EmbeddingService
+    - FAISSVectorStore
+    - RetrievalService
+
+  # 工厂函数
+  factories:
+    - get_upload_service
+    - get_document_service
+    - get_markdown_service
+    - get_vector_service
+    - get_embedding_service
+    - get_vector_store
+    - get_retrieval_service
+    - get_retrieval_strategy
+
+# 验证规范
+validation:
+  # 输入验证
+  input:
+    enabled: true
+    use_pydantic: true
+    custom_validators: true
+
+  # 输出验证
+  output:
+    enabled: true
+    use_pydantic: true
+    response_models: true
+
+  # 文件上传验证
+  file_upload:
+    max_file_size_mb: 50
+    allowed_types:
+      - .pdf
+      - .docx
+      - .doc
+      - .txt
+      - .md
+      - .html
+      - .pptx
+      - .xlsx
+
+# 异常处理规范
+exception_handling:
+  # 自定义异常
+  custom_exceptions:
+    ValidationError:
+      status_code: 400
+      log_level: warning
+
+    ProcessingError:
+      status_code: 500
+      log_level: error
+
+    StorageError:
+      status_code: 500
+      log_level: error
+
+    OCRError:
+      status_code: 500
+      log_level: error
+
+    FileFormatError:
+      status_code: 400
+      log_level: warning
+
+    ConfigurationError:
+      status_code: 500
+      log_level: error
+
+  # 全局异常处理器
+  global_handlers:
+    - HTTPException
+    - ValidationError
+    - RateLimitExceeded
+    - Exception
+
+# 文档规范
+documentation:
+  # OpenAPI文档
+  openapi:
+    enabled: true
+    docs_url: /docs
+    redoc_url: /redoc
+    openapi_url: /openapi.json
+
+  # API描述
+  api_description:
+    title: 智能客服系统API
+    version: 1.0.0
+    description: |
+      基于RAG技术的智能客服系统API，提供文档上传、向量化、语义检索和合规性检查等功能。
+
+  # 端点文档
+  endpoint_documentation:
+    enabled: true
+    include_examples: true
+    include_schema: true

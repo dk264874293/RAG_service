@@ -1,0 +1,161 @@
+name: code_style_rules
+version: 1.0.0
+description: 代码风格和规范规则
+scope: backend
+
+python_rules:
+  # PEP 8 基本规范
+  pep8:
+    enabled: true
+    max_line_length: 88
+    indent_size: 4
+    use_f_strings: true
+
+  # 类型提示
+  type_hints:
+    enabled: true
+    strict_mode: false
+    return_types: required
+    parameter_types: required
+
+  # 异步编程
+  async_patterns:
+    enabled: true
+    prefer_async_over_thread: true
+    use_asyncio_to_thread: true
+    avoid_blocking_calls: true
+
+  # 错误处理
+  error_handling:
+    enabled: true
+    no_bare_except: true
+    specific_exceptions: true
+    log_exceptions: true
+
+  # 日志记录
+  logging:
+    enabled: true
+    use_structlog: true
+    log_level: INFO
+    log_exceptions: true
+    log_performance: true
+
+  # 文档字符串
+  docstrings:
+    enabled: true
+    style: google
+    required_for:
+      - classes
+      - functions
+      - methods
+
+  # 导入规范
+  imports:
+    enabled: true
+    sort_imports: true
+    group_imports: true
+    no_relative_imports: true
+    avoid_star_imports: true
+
+typescript_rules:
+  # TypeScript 规范
+  typescript:
+    enabled: true
+    strict_mode: true
+    no_any: true
+    explicit_return_types: true
+
+  # React 规范
+  react:
+    enabled: true
+    functional_components: true
+    hooks_order: true
+    no_class_components: true
+
+  # 命名规范
+  naming:
+    enabled: true
+    camel_case_variables: true
+    pascal_case_components: true
+    snake_case_files: true
+
+code_quality:
+  # 代码复杂度
+  complexity:
+    max_cyclomatic_complexity: 10
+    max_function_lines: 50
+    max_class_lines: 300
+
+  # 重复代码
+  duplication:
+    enabled: true
+    max_duplicate_lines: 20
+
+  # 死代码
+  dead_code:
+    enabled: true
+    remove_unused_imports: true
+    remove_unused_variables: true
+
+# 特定模式
+patterns:
+  # FastAPI 路由模式
+  fastapi_routes:
+    description: FastAPI路由模式
+    prefix: "/api"
+    tags: required
+    response_model: required
+    use_depends: true
+
+  # 服务层模式
+  service_layer:
+    description: 服务层模式
+    async_methods: true
+    error_handling: true
+    logging: true
+
+  # 依赖注入模式
+  dependency_injection:
+    description: 依赖注入模式
+    use_lru_cache: true
+    use_depends: true
+    singleton: true
+
+# 禁止的模式
+forbidden_patterns:
+  - description: 不要使用 as any
+    pattern: "as any"
+    severity: error
+
+  - description: 不要使用 @ts-ignore
+    pattern: "@ts-ignore"
+    severity: error
+
+  - description: 不要使用空catch块
+    pattern: "except:\\s*pass"
+    severity: warning
+
+  - description: 不要使用裸except
+    pattern: "except:"
+    severity: error
+
+# 工具配置
+tools:
+  ruff:
+    enabled: true
+    config_file: .ruff.toml
+
+  pylint:
+    enabled: false
+
+  mypy:
+    enabled: true
+    strict: false
+
+  eslint:
+    enabled: true
+    config_file: .eslintrc.json
+
+  prettier:
+    enabled: true
+    config_file: .prettierrc

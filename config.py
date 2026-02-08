@@ -489,6 +489,12 @@ class Settings(BaseSettings):
     # 生成的HTML预览文件将保存在此目录，供前端访问
     preview_output_dir: str = "./data/previews"
 
+    # ==================== 文档处理输出配置 ====================
+
+    # 文档处理结果输出目录
+    # 处理后的JSON文件（包含提取的文本、元数据等）将保存在此目录
+    processed_dir: str = "./output_dir"
+
     # ==================== Markdown编辑器配置 ====================
 
     # 是否启用Markdown在线编辑器，允许在Web界面编辑Markdown文件
@@ -557,6 +563,8 @@ class Settings(BaseSettings):
         Path(self.evaluation_data_dir).mkdir(parents=True, exist_ok=True)
         # 创建预览输出目录
         Path(self.preview_output_dir).mkdir(parents=True, exist_ok=True)
+        # 创建文档处理结果输出目录
+        Path(self.processed_dir).mkdir(parents=True, exist_ok=True)
 
         # 创建Markdown编辑器相关目录（如果启用）
         if self.markdown_editor_enabled:
