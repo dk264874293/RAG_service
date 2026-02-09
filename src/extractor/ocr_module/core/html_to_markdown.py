@@ -19,6 +19,7 @@ try:
     html2text_config.ignore_links = False  # 保留链接
     html2text_config.ignore_images = False  # 保留图片
     html2text_config.ignore_tables = False  # 转换表格
+    html2text_config.pad_tables = True  # 填充表格，生成标准 Markdown 格式
 except ImportError:
     # 如果没有安装 html2text，使用备用方案
     from bs4 import BeautifulSoup
