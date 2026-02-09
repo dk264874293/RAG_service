@@ -8,6 +8,7 @@ import requests
 import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+from .html_to_markdown import convert_html_table_to_markdown
 
 
 class ResultSaver:
@@ -42,7 +43,7 @@ class ResultSaver:
         self, content: str, filename: str, subdir: Optional[str] = None
     ) -> str:
         """
-        保存 Markdown 文件
+        保存 Markdown 内容（自动将 HTML table 转换为 Markdown table）
 
         Args:
             content: Markdown 内容
@@ -52,6 +53,9 @@ class ResultSaver:
         Returns:
             保存的完整文件路径
         """
+        # 自动将 HTML table 转换为 Markdown table
+        content = convert_html_table_to_markdown(content)
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         name, ext = os.path.splitext(filename)
         timestamped_filename = f"{name}_{timestamp}{ext}"

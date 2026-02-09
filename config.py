@@ -358,6 +358,11 @@ class Settings(BaseSettings):
     # True：对PDF进行OCR识别；False：仅提取文本层
     enable_pdf_ocr: bool = True
 
+    # PDF 解析模式，控制 OCR 识别策略
+    # text_layer：使用pypdfium2提取文本层 + 图片OCR（默认，适合有文本层的PDF）
+    # full_ocr：对整个PDF页面进行OCR（适合扫描版PDF）
+    pdf_parse_mode: str = "full_ocr"
+
     # OCR引擎，默认paddle（飞桨）
     # 可选值：
     #   - paddle: 飞桨OCR远程API，需要配置endpoint和key

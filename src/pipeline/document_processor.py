@@ -28,6 +28,8 @@ class DocumentProcessingPipeline:
 
     def __init__(self, config: Optional[Dict] = None):
         self.config = config or {}
+        logger.info(f"DocumentProcessingPipeline 配置: {self.config}")
+        logger.info(f"pdf_parse_mode {self.config.get('pdf_parse_mode', 'text_layer')}")
         self.chunker = AdaptiveChunker(config)
         self.supported_formats = {
             ".pdf": self._process_pdf,
@@ -105,7 +107,7 @@ class DocumentProcessingPipeline:
         """处理PDF文件"""
         # 根据配置选择是否启用OCR
         enable_ocr = self.config.get("enable_pdf_ocr", True)
-        logger.info(f"_process_pdf ---> {self.config}")
+        logger.info(f"_process_pdf ---> {self.config.get('pdf_parse_mode', 'text_layer')}")
         # 统一使用增强版PDF提取器
         extractor = PdfExtractor(
             file_path,
@@ -113,6 +115,7 @@ class DocumentProcessingPipeline:
             user_id="default",
             config=self.config,
             enable_ocr=enable_ocr,
+            parse_mode=self.config.get("pdf_parse_mode", "text_layer"),
         )
         logger.info(f"使用增强版PDF提取器 (OCR: {enable_ocr}")
 

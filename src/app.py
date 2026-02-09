@@ -53,7 +53,9 @@ async def lifespan(app: FastAPI):
         "chunk_size": settings.chunk_size,
         "chunk_overlap": settings.chunk_overlap,
         "chunking_strategy": settings.chunking_strategy,
+        "pdf_parse_mode": settings.pdf_parse_mode,
     }
+    
     document_pipeline = DocumentProcessingPipeline(config)
 
     logger.info("服务启动完成")

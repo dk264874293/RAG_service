@@ -253,9 +253,9 @@ class PaddleOCRWrapper(BaseOCR):
 
         Args:
             input_data:
-                - bytes: 图片/PDF 的二进制数据
-                - str: 文件路径
-                - dict: {"file": base64_encoded, "fileType": 0}
+                - bytes: 图片的二进制数据（PNG、JPG等）
+                - str: 文件路径（PDF 或图片）
+                - dict: {"file": base64_encoded, "fileType": 0/1}
             filename: 文件名
 
         Returns:
@@ -263,11 +263,9 @@ class PaddleOCRWrapper(BaseOCR):
         """
         try:
             file_data = None
-            file_type = 0
 
             if isinstance(input_data, dict):
                 file_data = input_data.get("file", "")
-                file_type = input_data.get("fileType", 0)
             elif isinstance(input_data, str):
                 if not os.path.exists(input_data):
                     raise OCRInputError(f"文件不存在: {input_data}")
@@ -276,6 +274,8 @@ class PaddleOCRWrapper(BaseOCR):
                 file_data = base64.b64encode(file_bytes).decode("ascii")
             elif isinstance(input_data, bytes):
                 file_data = base64.b64encode(input_data).decode("ascii")
+                # 修复：bytes 输入默认为图片（fileType=1）
+                # 因为从 PDF 提取的图片是 PNG/JPG 格式
             else:
                 raise OCRInputError(
                     f"不支持的输入类型: {type(input_data)}。"
@@ -299,7 +299,6 @@ class PaddleOCRWrapper(BaseOCR):
 
             payload = {
                 "file": file_data,
-                "fileType": file_type,
                 "useDocOrientationClassify": features.get(
                     "orientation_classify", False
                 ),
@@ -402,15 +401,29 @@ class PaddleOCRWrapper(BaseOCR):
                 self.logger.debug(f"保存的文件: {saved_files}")
 
             # 解析 OCR 结果
+            # 修复：根据实际 API 返回结构提取数据
             for i, res in enumerate(api_result["layoutParsingResults"]):
-                parsing_res_list = res.get("parsing_res_list", [])
-                for idx, item in enumerate(parsing_res_list):
+                # 尝试从 markdown.text 中提取文本（优先）
+                markdown_text = ""
+                if "markdown" in res and "text" in res["markdown"]:
+                    markdown_text = res["markdown"]["text"]
+
+                # 如果没有 markdown.text，尝试从 parsing_res_list 提取（向后兼容）
+                if not markdown_text and "parsing_res_list" in res:
+                    parsing_res_list = res["parsing_res_list"]
+                    for item in parsing_res_list:
+                        content = item.get("block_content", "")
+                        if content:
+                            markdown_text += content + "\n"
+
+                # 如果有文本内容，创建 OCRResult
+                if markdown_text:
                     result = OCRResult(
-                        label=item.get("block_label", "unknown"),
-                        text=item.get("block_content", ""),
-                        confidence=item.get("confidence", 0.0),
-                        bbox=item.get("block_bbox", []),
-                        line_num=idx,
+                        label="layout_parse",
+                        text=markdown_text.strip(),
+                        confidence=1.0,  # API 返回的文本置信度较高
+                        bbox=[],  # API 不返回具体的 bbox
+                        line_num=i,
                     )
                     results.append(result)
 
@@ -503,7 +516,7 @@ class PaddleOCRWrapper(BaseOCR):
         # 创建子文件夹
         subdir = f"{name}_{timestamp}"
 
-        self.ensure_output_dir()
+        self.result_saver.ensure_output_dir()
 
         for i, res in enumerate(api_result["layoutParsingResults"]):
             try:
@@ -534,7 +547,7 @@ class PaddleOCRWrapper(BaseOCR):
 
                 # 保存 prunedResult
                 if "prunedResult" in res:
-                    json_path = self.save_json(
+                    json_path = self.result_saver.save_json(
                         res["prunedResult"], f"prunedResult_{i}.json", subdir=subdir
                     )
                     saved_files["json"].append(json_path)
@@ -548,4 +561,3 @@ class PaddleOCRWrapper(BaseOCR):
         self.logger.info(f"Saved {total} files: {saved_files}")
 
         return saved_files
-

@@ -10,7 +10,6 @@ Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查�
 import io
 import logging
 import hashlib
-import asyncio
 from functools import lru_cache
 from typing import Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor
@@ -162,7 +161,12 @@ class PdfExtractor(BaseExtractor):
 
         self.enable_ocr = enable_ocr
         logger.info(f"enable_ocr: {enable_ocr}")  # 修复日志格式
-        self.parse_mode = parse_mode
+
+        # 从配置读取 parse_mode，如果参数未提供则使用配置值
+        final_parse_mode = parse_mode or self.config.get(
+            "pdf_parse_mode", PdfExtractorConstants.DEFAULT_PARSE_MODE
+        )
+        self.parse_mode = final_parse_mode
 
         # 验证解析模式
         if self.parse_mode not in [
@@ -221,7 +225,6 @@ class PdfExtractor(BaseExtractor):
             ocr_module_threshold = self.config.get(
                 "ocr_module_confidence_threshold", pdf_extractor_threshold
             )
-
             # 构建 OCRService 配置参数
             self.ocr_service = OCRService(
                 engine=engine,
@@ -231,6 +234,7 @@ class PdfExtractor(BaseExtractor):
                 api_endpoint=self.config.get("ocr_api_endpoint"),
                 api_key=self.config.get("ocr_api_key"),
                 output_dir=self.config.get("ocr_output_dir"),
+                parse_mode=self.config.get("pdf_parse_mode", "text_layer"),
             )
             self.pdf_extractor_threshold = pdf_extractor_threshold
 
@@ -284,15 +288,13 @@ class PdfExtractor(BaseExtractor):
 
     def _run_async_ocr_task(self, ocr_func: callable, *args, **kwargs) -> Any:
         """
-        统一的异步OCR任务执行器（消除代码重复）
+        同步包装器：调用 OCR 函数（修复异步包装器问题）
 
-        功能：
-        1. 检查当前线程是否有正在运行的事件循环
-        2. 如果有事件循环，在新线程中运行任务
-        3. 如果没有事件循环，直接使用asyncio.run
+        关键修复：OCRService.recognize() 是同步函数，不需要 asyncio.run()
+        原问题：对同步函数使用 asyncio.run() 会导致 "a coroutine was expected" 错误
 
         Args:
-            ocr_func: OCR任务函数（异步）
+            ocr_func: OCR任务函数（同步函数）
             *args: OCR任务的位置参数
             **kwargs: OCR任务的关键字参数
 
@@ -303,19 +305,10 @@ class PdfExtractor(BaseExtractor):
             OCRError: OCR执行失败时抛出
         """
         try:
-            try:
-                asyncio.get_running_loop()
-                # 如果有运行中的事件循环，我们需要在新的线程中运行任务
-                future = self._executor.submit(
-                    lambda: asyncio.run(ocr_func(*args, **kwargs))
-                )
-                return future.result()
-            except RuntimeError:
-                # 没有运行中的事件循环，可以直接使用asyncio.run
-                return asyncio.run(ocr_func(*args, **kwargs))
-
+            # 直接调用同步函数，不需要 asyncio.run()
+            return ocr_func(*args, **kwargs)
         except Exception as e:
-            error_msg = f"异步OCR任务执行失败: {e}"
+            error_msg = f"OCR任务执行失败: {e}"
             logger.error(error_msg)
             raise OCRError(error_msg) from e
 
@@ -434,6 +427,7 @@ class PdfExtractor(BaseExtractor):
                 img_bytes,
                 return_format="dict",
             )
+            logger.debug("OCR识别结果: %s", result)
 
             # 处理结果
             if isinstance(result, str):
@@ -508,13 +502,14 @@ class PdfExtractor(BaseExtractor):
         """
         try:
             # 渲染页面为bitmap
+            # 注意：pypdfium2 v5.0+ 移除了 FPDF_COLORSCHEME_BGR 常量
+            # 使用默认的 color_scheme=None 即可（默认为 RGB 格式）
             bitmap = page.render(
                 scale=scale,
                 rotation=0,
-                color_scheme=pypdfium2.raw.FPDF_COLORSCHEME_BGR,  # BGR格式
             )
 
-            # 转换为PIL Image
+            # 转换为PIL Image（pypdfium2 v5.0+ 默认为 RGB 格式）
             pil_image = bitmap.to_pil()
 
             # 检查图片尺寸（如果小于最小尺寸，跳过）
@@ -526,14 +521,6 @@ class PdfExtractor(BaseExtractor):
                     f"图片尺寸过小（{pil_image.size}），小于最小值（{self.config_model.min_image_size}），跳过OCR"
                 )
                 return None
-
-            # 转换BGR到RGB（pypdfium2默认使用BGR）
-            if pil_image.mode == "RGB":
-                import numpy as np
-
-                bgr_array = np.array(pil_image)
-                rgb_array = bgr_array[:, :, ::-1]  # BGR -> RGB
-                pil_image = Image.fromarray(rgb_array)
 
             # 检查文件大小（估算）
             max_image_size_bytes = self.config_model.max_image_size_mb * 1024 * 1024
@@ -663,38 +650,41 @@ class PdfExtractor(BaseExtractor):
             logger.error(f"文本层提取失败: {e}")
             raise PdfExtractorError(f"文本层提取失败: {e}") from e
 
-    def _extract_with_full_ocr(self, page, page_number: int) -> str:
+    def _extract_with_full_ocr(self, pdf_bytes: bytes, page_number: int) -> str:
         """
-        使用整页OCR提取（新逻辑）
+        使用整页OCR提取（直接传递PDF给API）
 
         流程：
-        1. 将PDF页面渲染为图片
-        2. 检查图片是否符合配置（尺寸、大小）
-        3. 对整页进行OCR识别
-        4. 关闭page对象
+        1. 直接将PDF文件传递给OCR服务
+        2. API支持完整PDF文件处理（fileType=0）
 
         Args:
-            page: pypdfium2页面对象
-            page_number: 页码
+            pdf_bytes: PDF文件的字节数据
+            page_number: 页码（用于日志）
 
         Returns:
-            OCR识别的文本内容（如果图片不符合配置，返回空字符串）
+            OCR识别的文本内容
         """
-        # 将页面渲染为图片（可能返回None，如果不符合配置）
-        page_image = self._render_page_to_image(page)
+        try:
+            # 直接传递PDF文件给OCR服务
+            ocr_text = self._run_async_ocr_task(
+                self.ocr_service.recognize,
+                pdf_bytes,
+                return_format="text",
+            )
 
-        # 如果图片渲染失败或不符合配置，返回空字符串
-        if page_image is None:
-            logger.info(f"页面{page_number} 渲染失败或不符合配置，跳过OCR")
-            return ""
+            if ocr_text:
+                logger.info(f"页面{page_number} OCR识别成功，文本长度: {len(ocr_text)}")
+            else:
+                logger.warning(f"页面{page_number} OCR未识别到文本")
 
-        # 对整页进行OCR
-        ocr_text = self._ocr_page(page_image, page_number)
+            return ocr_text
 
-        # 关闭page
-        page.close()
-
-        return ocr_text
+        except OCRError:
+            raise
+        except Exception as e:
+            logger.error(f"页面{page_number} OCR执行失败: {e}")
+            raise OCRError(f"页面{page_number} OCR执行失败: {e}") from e
 
     def extract(self) -> list:
         """
@@ -702,8 +692,8 @@ class PdfExtractor(BaseExtractor):
 
         流程：
         1. 如果parse_mode == "full_ocr"：
-           - 渲染每页为图片
-           - 对整页进行OCR识别
+           - 直接将整个PDF文件传递给OCR API
+           - API一次性处理所有页面（fileType=0）
         2. 如果parse_mode == "text_layer"（默认）：
            - 提取文本层
            - 对页面中的图片进行OCR（如果enable_ocr为True）
@@ -718,17 +708,26 @@ class PdfExtractor(BaseExtractor):
         try:
             pdf_reader = pypdfium2.PdfDocument(self._file_path, autoclose=True)
             try:
-                for page_number, page in enumerate(pdf_reader):
-                    # 根据解析模式选择提取方式
-                    if self.parse_mode == PdfExtractorConstants.MODE_FULL_OCR:
-                        # 模式2：整页OCR（适合扫描版PDF）
-                        content = self._extract_with_full_ocr(page, page_number)
-                    else:
-                        # 模式1：文本层提取 + 图片OCR（默认，适合有文本层的PDF）
-                        content = self._extract_with_text_layer(page)
+                # 读取PDF文件的字节数据（用于full_ocr模式）
+                with open(self._file_path, "rb") as f:
+                    pdf_bytes = f.read()
 
-                    metadata = {"source": self._file_path, "page": page_number}
+                if self.parse_mode == PdfExtractorConstants.MODE_FULL_OCR:
+                    # 模式2：整页OCR（适合扫描版PDF）
+                    # 直接传递整个PDF给OCR API，一次性处理所有页面
+                    content = self._extract_with_full_ocr(pdf_bytes, 0)
+
+                    # 创建单个文档对象（包含所有页面内容）
+                    metadata = {"source": self._file_path, "page": 0}
                     documents.append(Document(page_content=content, metadata=metadata))
+                else:
+                    # 模式1：文本层提取 + 图片OCR（默认，适合有文本层的PDF）
+                    for page_number, page in enumerate(pdf_reader):
+                        content = self._extract_with_text_layer(page)
+                        metadata = {"source": self._file_path, "page": page_number}
+                        documents.append(
+                            Document(page_content=content, metadata=metadata)
+                        )
             finally:
                 pdf_reader.close()
 

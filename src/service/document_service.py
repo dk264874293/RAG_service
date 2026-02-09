@@ -51,6 +51,7 @@ class DocumentService:
                 "chunk_size": self.settings.chunk_size,
                 "chunk_overlap": self.settings.chunk_overlap,
                 "chunking_strategy": self.settings.chunking_strategy,
+                "pdf_parse_mode": self.settings.pdf_parse_mode,
             }
 
             pipeline = DocumentProcessingPipeline(config)
