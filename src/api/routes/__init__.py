@@ -5,6 +5,7 @@ from .retrieval import router as retrieval_router
 from .compliance import router as compliance_router
 from .auth import router as auth_router
 from .vector import router as vector_router
+from . import maintenance
 
 __all__ = [
     "upload_router",
@@ -14,4 +15,5 @@ __all__ = [
     "compliance_router",
     "auth_router",
     "vector_router",
+    "maintenance",
 ]

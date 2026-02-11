@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(KMP_DUPLICATE_LIB_OK=TRUE python:*)",
+      "Bash(chmod:*)",
+      "Bash(./start.sh:*)",
+      "Bash(curl:*)",
+      "Bash(./stop.sh:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}

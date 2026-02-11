@@ -42,6 +42,38 @@ class FlatL2Index(BaseFAISSIndex):
         pass
 
 
+class IVFIndex(BaseFAISSIndex):
+    """IVF index (approximate search, needs training)
+
+    Parameters:
+        nlist: Number of clusters (default: 100)
+        nprobe: Number of clusters to search (default: 10)
+    """
+
+    def create_index(self) -> faiss.Index:
+        nlist = self.config.get("nlist", 100)
+
+        logger.info(f"Creating IVF index: nlist={nlist}")
+
+        quantizer = faiss.IndexFlatL2(self.dimension)
+        index = faiss.IndexIVFFlat(quantizer, self.dimension, nlist)
+        index.nprobe = self.config.get("nprobe", 10)
+
+        return index
+
+    def train_index(self, vectors: list) -> None:
+        if self.index.is_trained:
+            logger.info("Index already trained, skipping")
+            return
+
+        logger.info(f"Training IVF index with {len(vectors)} vectors")
+        import numpy as np
+
+        train_vectors = np.array(vectors).astype("float32")
+        self.index.train(train_vectors)
+        logger.info("IVF index training completed")
+
+
 class IVFPQIndex(BaseFAISSIndex):
     """IVF-PQ index (approximate search, needs training)
 
@@ -105,6 +137,7 @@ class FAISSIndexFactory:
 
     _index_types = {
         "flat": FlatL2Index,
+        "ivf": IVFIndex,
         "ivf_pq": IVFPQIndex,
         "hnsw": HNSWIndex,
     }

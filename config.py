@@ -16,6 +16,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# 项目根目录，相对于此文件解析
+PROJECT_ROOT = Path(__file__).parent.resolve()
+
 
 class Settings(BaseSettings):
     """
@@ -61,6 +64,43 @@ class Settings(BaseSettings):
     # 使用v2版本（1536维）而不是v3（384维），提供更好的向量表示
     dashscope_embedding_model: str = "text-embedding-v2"
 
+    # ==================== 存储配置 ====================
+
+    # 存储类型：local（本地文件系统）或 oss（阿里云OSS）
+    # 控制文件存储的底层实现方式
+    storage_type: str = os.getenv("STORAGE_TYPE", "local")
+
+    # OSS配置（阿里云对象存储）
+    # OSS访问密钥ID，从环境变量OSS_ACCESS_KEY_ID读取
+    oss_access_key_id: Optional[str] = os.getenv("OSS_ACCESS_KEY_ID", None)
+
+    # OSS访问密钥Secret，从环境变量OSS_ACCESS_KEY_SECRET读取
+    oss_access_key_secret: Optional[str] = os.getenv("OSS_ACCESS_KEY_SECRET", None)
+
+    # OSS端点地址，例如 oss-cn-hangzhou.aliyuncs.com
+    # 从环境变量OSS_ENDPOINT读取，使用OSS时必需配置
+    oss_endpoint: Optional[str] = os.getenv("OSS_ENDPOINT", None)
+
+    # OSS存储桶名称，从环境变量OSS_BUCKET_NAME读取
+    # 使用OSS时必需配置
+    oss_bucket_name: Optional[str] = os.getenv("OSS_BUCKET_NAME", None)
+
+    # OSS文件前缀，用于在Bucket中组织文件
+    # 默认使用 rag-service/ 作为前缀，避免与其他应用文件冲突
+    oss_prefix: str = os.getenv("OSS_PREFIX", "rag-service/")
+
+    # OSS操作超时时间（秒），默认60秒
+    # 用于上传、下载等OSS操作的超时控制
+    oss_timeout: int = int(os.getenv("OSS_TIMEOUT", "60"))
+
+    # OSS预签名URL过期时间（秒），默认3600秒（1小时）
+    # 用于生成临时访问URL的过期时间
+    oss_presign_url_expire: int = int(os.getenv("OSS_PRESIGN_URL_EXPIRE", "3600"))
+
+    # OSS失败时是否回退到本地存储
+    # True：OSS操作失败时自动使用本地存储；False：OSS失败时抛出异常
+    oss_fallback_to_local: bool = os.getenv("OSS_FALLBACK_TO_LOCAL", "true").lower() == "true"
+
     # ==================== 数据存储配置 ====================
 
     # Chroma向量数据库持久化目录，存储向量索引和元数据
@@ -79,6 +119,117 @@ class Settings(BaseSettings):
     # 用于基于FAISS的高性能向量相似度检索
     faiss_index_path: str = "./data/faiss_index"
     faiss_dimension: int = 1536  # DashScope text-embedding-v2 向量维度
+
+    # ==================== FAISS索引优化配置 ====================
+
+    # FAISS索引类型: flat, ivf, ivf_pq, hnsw
+    # flat: 精确搜索（适合<10K向量）
+    # ivf: 倒排文件（适合10K-1M向量）
+    # ivf_pq: 乘积量化（适合1M-10M向量，节省内存）
+    # hnsw: 分层导航图（适合所有规模，最快）
+    faiss_index_type: str = os.getenv("FAISS_INDEX_TYPE", "flat")
+
+    # 是否启用自适应索引选择
+    # True: 根据数据规模自动选择最优索引类型
+    faiss_index_auto_select: bool = os.getenv("FAISS_INDEX_AUTO_SELECT", "false").lower() == "true"
+
+    # 自适应选择的内存限制（MB）
+    faiss_index_memory_limit_mb: int = int(os.getenv("FAISS_INDEX_MEMORY_LIMIT_MB", "4096"))
+
+    # 目标搜索延迟（ms），超过此值会触发优化建议
+    faiss_index_target_latency_ms: int = int(os.getenv("FAISS_INDEX_TARGET_LATENCY_MS", "100"))
+
+    # 是否启用性能监控
+    faiss_index_enable_monitoring: bool = os.getenv("FAISS_INDEX_ENABLE_MONITORING", "true").lower() == "true"
+
+    # FAISS索引详细配置（按索引类型）
+    faiss_index_config: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            # Flat索引配置
+            "flat": {
+                "metric": "L2",  # 或 "IP" (内积)
+            },
+
+            # IVF索引配置
+            "ivf": {
+                "nlist": 100,  # 聚类中心数（建议: sqrt(n)）
+                "nprobe": 10,  # 搜索时探测的聚类数（影响速度/准确率）
+                "metric": "L2",
+            },
+
+            # IVF-PQ索引配置
+            "ivf_pq": {
+                "nlist": 100,  # 聚类中心数
+                "nprobe": 10,  # 搜索时探测的聚类数
+                "m": 64,  # PQ子量化器数（影响压缩比）
+                "nbits": 8,  # 每个量化器的位数
+                "metric": "L2",
+            },
+
+            # HNSW索引配置
+            "hnsw": {
+                "M": 32,  # 每个节点的连接数（16-64，大=高召回但慢构建）
+                "efConstruction": 200,  # 构建时的候选数（影响质量）
+                "efSearch": 64,  # 搜索时的候选数（建议: k*2-10）
+                "metric": "L2",
+            },
+        }
+    )
+
+    # ==================== 分代索引配置 ====================
+
+    # 是否启用分代索引架构
+    # True: 使用Hot/Cold双索引，支持物理删除；False: 使用传统软删除
+    enable_generational_index: bool = os.getenv("ENABLE_GENERATIONAL_INDEX", "false").lower() == "true"
+
+    # Hot Index配置（活跃索引，支持物理删除）
+    # Hot Index最大容量（向量数），超过此值触发归档
+    hot_index_max_size: int = int(os.getenv("HOT_INDEX_MAX_SIZE", "1000000"))
+
+    # Hot Index索引类型: IVFPQ, IVF, HNSW, Flat
+    # IVFPQ: 速度快，内存占用小（推荐）
+    # HNSW: 高召回率，内存占用大
+    # Flat: 精确搜索，速度慢
+    hot_index_type: str = os.getenv("HOT_INDEX_TYPE", "IVFPQ")
+
+    # IVF-PQ/IVF参数：聚类中心数（影响索引质量和构建时间）
+    hot_index_nlist: int = int(os.getenv("HOT_INDEX_NLIST", "100"))
+
+    # IVF-PQ/IVF参数：搜索时探测的聚类数（影响搜索速度和准确性）
+    hot_index_nprobe: int = int(os.getenv("HOT_INDEX_NPROBE", "10"))
+
+    # IVF-PQ参数：PQ压缩维度（影响内存占用和准确性）
+    hot_index_m: int = int(os.getenv("HOT_INDEX_M", "64"))
+
+    # IVF-PQ参数：每个量化器的位数
+    hot_index_nbits: int = int(os.getenv("HOT_INDEX_NBITS", "8"))
+
+    # Cold Index配置（归档索引，只读优化）
+    # Cold Index索引类型: HNSW, Flat
+    # HNSW: 高召回率（推荐）
+    # Flat: 精确搜索
+    cold_index_type: str = os.getenv("COLD_INDEX_TYPE", "HNSW")
+
+    # HNSW参数：每个节点的连接数（影响索引质量和内存占用）
+    cold_index_m: int = int(os.getenv("COLD_INDEX_M", "32"))
+
+    # HNSW参数：搜索时的候选数（影响召回率和速度）
+    cold_index_ef_search: int = int(os.getenv("COLD_INDEX_EF_SEARCH", "64"))
+
+    # 归档配置
+    # 文档归档天数（超过此天数的文档从Hot迁移到Cold）
+    archive_age_days: int = int(os.getenv("ARCHIVE_AGE_DAYS", "30"))
+
+    # 归档任务调度（cron表达式：分 时 日 月 周）
+    # 默认：每天凌晨2点执行
+    archive_schedule: str = os.getenv("ARCHIVE_SCHEDULE", "0 2 * * *")
+
+    # Cold Index重建任务调度（默认：每周日凌晨3点）
+    rebuild_schedule: str = os.getenv("REBUILD_SCHEDULE", "0 3 * * 0")
+
+    # 搜索权重配置（Hot和Cold索引的融合权重）
+    hot_search_weight: float = float(os.getenv("HOT_SEARCH_WEIGHT", "0.7"))
+    cold_search_weight: float = float(os.getenv("COLD_SEARCH_WEIGHT", "0.3"))
 
     # 最大上传文件大小（字节），默认10MB（10485760）
     # 超过此大小的文件将被拒绝
@@ -142,6 +293,55 @@ class Settings(BaseSettings):
             "default": "fixed",  # 默认使用固定分块
         }
     )
+
+    # ==================== 检索层优化配置 ====================
+
+    # 是否启用增强检索服务
+    # True: 使用EnhancedRetrievalService（集成Reranker、BM25、多策略）
+    # False: 使用传统RetrievalService
+    enable_enhanced_retrieval: bool = os.getenv("ENABLE_ENHANCED_RETRIEVAL", "true").lower() == "true"
+
+    # Reranker默认启用配置
+    # True: 所有检索默认使用Reranker重新排序
+    # False: 需要手动指定use_rerank=True才使用Reranker
+    enable_reranker_by_default: bool = True
+
+    # Reranker召回倍数，用于在Rerank前召回更多结果
+    # 例如：reranker_top_k=20，最终返回k=5，会先召回20个，Rerank后返回top 5
+    reranker_top_k: int = int(os.getenv("RERANKER_TOP_K", "20"))
+
+    # 是否启用BM25索引
+    # True: 自动构建和同步BM25索引，支持混合检索
+    # False: 禁用BM25，仅使用向量检索
+    enable_bm25: bool = os.getenv("ENABLE_BM25", "true").lower() == "true"
+
+    # BM25参数配置
+    # k1: 词频饱和度参数（1.2-2.0），越大表示词频重要性越高
+    bm25_k1: float = float(os.getenv("BM25_K1", "1.2"))
+
+    # b: 文档长度归一化参数（0.0-1.0），越大表示长文档惩罚越强
+    bm25_b: float = float(os.getenv("BM25_B", "0.75"))
+
+    # BM25自动同步
+    # True: 自动检测向量存储变化并同步到BM25索引
+    # False: 需要手动触发BM25索引构建
+    bm25_auto_sync: bool = os.getenv("BM25_AUTO_SYNC", "true").lower() == "true"
+
+    # 高级检索策略配置
+    # hyde: 生成假设文档进行检索（适合问答类查询）
+    # query2doc: 扩展查询进行检索（适合模糊查询）
+    # decomposition: 分解复杂查询（暂未实现）
+    # multi_query: 多查询并行检索（暂未实现）
+    enable_advanced_strategies: bool = os.getenv("ENABLE_ADVANCED_STRATEGIES", "true").lower() == "true"
+
+    # HyDE策略配置
+    hyde_model: str = os.getenv("HYDE_MODEL", "qwen-plus")
+    hyde_temperature: float = float(os.getenv("HYDE_TEMPERATURE", "0.0"))
+
+    # Query2Doc策略配置
+    query2doc_model: str = os.getenv("QUERY2DOC_MODEL", "qwen-plus")
+    query2doc_temperature: float = float(os.getenv("QUERY2DOC_TEMPERATURE", "0.7"))
+    query2doc_num_expansions: int = int(os.getenv("QUERY2DOC_NUM_EXPANSIONS", "3"))
 
     # ==================== 检索配置 ====================
 
@@ -333,12 +533,39 @@ class Settings(BaseSettings):
 
     # ==================== 数据库配置 ====================
 
-    # MySQL数据库连接URL
-    # 格式: mysql+aiomysql://username:password@host:port/database_name
-    # 从环境变量DATABASE_URL读取，示例: mysql+aiomysql://root:password@localhost:3306/rag_service
-    database_url: str = os.getenv(
-        "DATABASE_URL", "mysql+aiomysql://root:password@localhost:3306/rag_service"
-    )
+    mysql_server_host: Optional[str] = os.getenv("MYSQL_SERVER_HOST", None)
+    mysql_server_port: Optional[str] = os.getenv("MYSQL_SERVER_PORT", None)
+    mysql_server_username: Optional[str] = os.getenv("MYSQL_SERVER_USERNAME", None)
+    mysql_server_password: Optional[str] = os.getenv("MYSQL_SERVER_PASSWORD", None)
+    mysql_server_database: Optional[str] = os.getenv("MYSQL_SERVER_DATABASE", None)
+
+    @property
+    def database_url(self) -> str:
+        """
+        优先从 MYSQL_* 环境变量构建 URL，否则使用 DATABASE_URL 环境变量
+        密码会进行 URL 编码以处理特殊字符
+        """
+        if all(
+            [
+                self.mysql_server_host,
+                self.mysql_server_port,
+                self.mysql_server_username,
+                self.mysql_server_password,
+                self.mysql_server_database,
+            ]
+        ):
+            from urllib.parse import quote_plus
+
+            encoded_password = quote_plus(self.mysql_server_password)
+            return (
+                f"mysql+aiomysql://{self.mysql_server_username}:{encoded_password}"
+                f"@{self.mysql_server_host}:{self.mysql_server_port}"
+                f"/{self.mysql_server_database}"
+            )
+        # 否则使用 DATABASE_URL 环境变量
+        return os.getenv(
+            "DATABASE_URL", "mysql+aiomysql://root:password@localhost:3306/rag_service"
+        )
 
     # 数据库连接池大小
     # 控制同时可用的数据库连接数量
@@ -506,14 +733,65 @@ class Settings(BaseSettings):
     # True：提供Markdown编辑器功能；False：禁用编辑功能
     markdown_editor_enabled: bool = True
 
-    # Markdown文件存储目录，默认./src/extractor/ocr_module/output_dir
+    # Markdown文件存储目录，默认./output_dir
     # OCR识别后生成的Markdown文件保存在此目录
     # 建议使用绝对路径或相对于项目根目录的相对路径
-    markdown_output_dir: str = "./src/extractor/ocr_module/output_dir"
+    markdown_output_dir: str = "./output_dir"
 
     # 最大Markdown文件大小（字节），默认10MB
     # 超过此大小的Markdown文件将无法编辑和保存
     markdown_max_file_size: int = 10485760  # 10MB
+
+    # ==================== 多租户配置 ====================
+
+    # 是否启用多租户支持
+    enable_multi_tenant: bool = os.getenv("ENABLE_MULTI_TENANT", "true").lower() == "true"
+
+    # 租户识别方式: header | subdomain | query
+    tenant_identification: str = os.getenv("TENANT_IDENTIFICATION", "header")
+
+    # 租户HTTP头名称
+    tenant_header_name: str = os.getenv("TENANT_HEADER_NAME", "X-Tenant-ID")
+
+    # 默认租户（单租户模式使用）
+    default_tenant_id: str = os.getenv("DEFAULT_TENANT_ID", "default")
+
+    # 租户数据隔离级别: database | schema | row_level
+    tenant_isolation_level: str = os.getenv("TENANT_ISOLATION_LEVEL", "row_level")
+
+    # ==================== RBAC权限配置 ====================
+
+    # 是否启用RBAC权限系统
+    enable_rbac: bool = os.getenv("ENABLE_RBAC", "true").lower() == "true"
+
+    # 是否启用审计日志
+    enable_audit_log: bool = os.getenv("ENABLE_AUDIT_LOG", "true").lower() == "true"
+
+    # 审计日志保留天数
+    audit_log_retention_days: int = int(os.getenv("AUDIT_LOG_RETENTION_DAYS", "90"))
+
+    # 权限检查缓存时间（秒）
+    permission_cache_ttl: int = int(os.getenv("PERMISSION_CACHE_TTL", "300"))
+
+    # 是否启用资源级权限控制
+    enable_resource_permission: bool = os.getenv("ENABLE_RESOURCE_PERMISSION", "true").lower() == "true"
+
+    # ==================== Memory管理配置 ====================
+
+    # 是否启用对话记忆
+    enable_conversation_memory: bool = os.getenv("ENABLE_CONVERSATION_MEMORY", "true").lower() == "true"
+
+    # 对话记忆最大消息数
+    conversation_max_messages: int = int(os.getenv("CONVERSATION_MAX_MESSAGES", "100"))
+
+    # 对话记忆最大token数
+    conversation_max_tokens: int = int(os.getenv("CONVERSATION_MAX_TOKENS", "4000"))
+
+    # 是否启用自动总结
+    enable_summarization: bool = os.getenv("ENABLE_SUMMARIZATION", "true").lower() == "true"
+
+    # 总结触发阈值（消息数）
+    summarization_threshold: int = int(os.getenv("SUMMARIZATION_THRESHOLD", "20"))
 
     # ==================== 前端配置 ====================
 
@@ -553,11 +831,33 @@ class Settings(BaseSettings):
             self.ocr_api_key = self.ocr_api_key
         self._create_directories()
 
+    def _resolve_path(self, path_str: str) -> Path:
+        """
+        将相对路径解析为相对于项目根目录的绝对路径
+
+        Args:
+            path_str: 路径字符串，可以是相对路径或绝对路径
+
+        Returns:
+            解析后的绝对路径
+        """
+        path = Path(path_str)
+        if path.is_absolute():
+            return path
+        return PROJECT_ROOT / path
+
     def _create_directories(self):
         """
         自动创建所有需要的目录
         在配置加载后自动调用，确保所有目录存在
         """
+        self.chroma_persist_dir = str(self._resolve_path(self.chroma_persist_dir))
+        self.upload_dir = str(self._resolve_path(self.upload_dir))
+        self.cache_dir = str(self._resolve_path(self.cache_dir))
+        self.evaluation_data_dir = str(self._resolve_path(self.evaluation_data_dir))
+        self.preview_output_dir = str(self._resolve_path(self.preview_output_dir))
+        self.processed_dir = str(self._resolve_path(self.processed_dir))
+
         # 创建向量数据库目录
         Path(self.chroma_persist_dir).mkdir(parents=True, exist_ok=True)
         # 创建文件上传目录
@@ -573,6 +873,8 @@ class Settings(BaseSettings):
 
         # 创建Markdown编辑器相关目录（如果启用）
         if self.markdown_editor_enabled:
+            self.markdown_output_dir = str(self._resolve_path(self.markdown_output_dir))
+            self.frontend_static_dir = str(self._resolve_path(self.frontend_static_dir))
             # 创建Markdown文件存储目录
             Path(self.markdown_output_dir).mkdir(parents=True, exist_ok=True)
             # 创建前端静态文件目录

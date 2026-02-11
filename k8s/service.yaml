@@ -1,0 +1,55 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-service
+  namespace: rag-service
+  labels:
+    app: rag-service
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  selector:
+    app: rag-service
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rag-service
+  namespace: rag-service
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rag-service-ingress
+  namespace: rag-service
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - rag-service.example.com
+    secretName: rag-service-tls
+  rules:
+  - host: rag-service.example.com
+    http:
+      paths:
+      - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: rag-service
+            port:
+              number: 8000

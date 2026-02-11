@@ -34,6 +34,11 @@ async def get_markdown_file(
     if not settings.markdown_editor_enabled:
         raise HTTPException(status_code=403, detail="Markdown编辑器未启用")
 
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"Received file_path: {repr(file_path)}")
+
     file_data = markdown_service.get_file(file_path)
     return MarkdownContent(**file_data)
 

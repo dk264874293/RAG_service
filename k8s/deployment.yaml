@@ -1,0 +1,198 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-service
+  namespace: rag-service
+  labels:
+    app: rag-service
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: rag-service
+  template:
+    metadata:
+      labels:
+        app: rag-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: rag-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: rag-service
+        image: rag-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: rag-config
+              key: DATABASE_URL
+        - name: FAISS_INDEX_PATH
+          valueFrom:
+            configMapKeyRef:
+              name: rag-config
+              key: FAISS_INDEX_PATH
+        - name: FAISS_INDEX_AUTO_SELECT
+          valueFrom:
+            configMapKeyRef:
+              name: rag-config
+              key: FAISS_INDEX_AUTO_SELECT
+        - name: ENABLE_GENERATIONAL_INDEX
+          valueFrom:
+            configMapKeyRef:
+              name: rag-config
+              key: ENABLE_GENERATIONAL_INDEX
+        - name: ENABLE_ENHANCED_RETRIEVAL
+          valueFrom:
+            configMapKeyRef:
+              name: rag-config
+              key: ENABLE_ENHANCED_RETRIEVAL
+        - name: ENABLE_BM25
+          valueFrom:
+            configMapKeyRef:
+              name: rag-config
+              key: ENABLE_BM25
+        - name: DASHSCOPE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rag-secrets
+              key: DASHSCOPE_API_KEY
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rag-secrets
+              key: OPENAI_API_KEY
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rag-secrets
+              key: SECRET_KEY
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: rag-config
+              key: LOG_LEVEL
+        # Jaeger追踪
+        - name: JAEGER_AGENT_HOST
+          value: "jaeger-agent"
+        - name: JAEGER_AGENT_PORT
+          value: "6831"
+        - name: JAEGER_SAMPLER_TYPE
+          value: "probabilistic"
+        - name: JAEGER_SAMPLER_PARAM
+          value: "0.1"
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        - name: output
+          mountPath: /app/output_dir
+        - name: logs
+          mountPath: /app/logs
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        livenessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: rag-data-pvc
+      - name: output
+        persistentVolumeClaim:
+          claimName: rag-output-pvc
+      - name: logs
+        emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - rag-service
+              topologyKey: kubernetes.io/hostname
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rag-service-hpa
+  namespace: rag-service
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rag-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Max

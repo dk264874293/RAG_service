@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # RAG应用服务
+  rag-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-service
+    ports:
+      - "8000:8000"
+    environment:
+      # 数据库配置
+      - MYSQL_SERVER_HOST=mysql
+      - MYSQL_SERVER_PORT=3306
+      - MYSQL_SERVER_USERNAME=rag_user
+      - MYSQL_SERVER_PASSWORD=rag_password
+      - MYSQL_SERVER_DATABASE=rag_service
+
+      # DashScope API
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+      # 存储配置
+      - STORAGE_TYPE=local
+      - OSS_PREFIX=rag-service/
+
+      # FAISS配置
+      - FAISS_INDEX_PATH=/app/data/faiss_index
+      - FAISS_INDEX_AUTO_SELECT=true
+      - ENABLE_GENERATIONAL_INDEX=true
+
+      # 检索优化
+      - ENABLE_ENHANCED_RETRIEVAL=true
+      - ENABLE_BM25=true
+      - ENABLE_RERANKER_BY_DEFAULT=true
+
+      # JWT密钥
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+
+      # 日志级别
+      - LOG_LEVEL=INFO
+    volumes:
+      # 数据持久化
+      - rag_data:/app/data
+      - rag_output:/app/output_dir
+      - rag_logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    container_name: rag-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=rag_service
+      - MYSQL_USER=rag_user
+      - MYSQL_PASSWORD=rag_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./migrations:/docker-entrypoint-initdb.d
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: rag-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass redis_password
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Prometheus监控
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rag-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+  # Grafana仪表板
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rag-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    restart: unless-stopped
+    networks:
+      - rag-network
+    depends_on:
+      - prometheus
+
+  # Jaeger链路追踪
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: rag-jaeger
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"
+      - "9411:9411"
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+volumes:
+  rag_data:
+    driver: local
+  rag_output:
+    driver: local
+  rag_logs:
+    driver: local
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  rag-network:
+    driver: bridge

@@ -38,6 +38,7 @@ env/
 *.swo
 *~
 .DS_Store
+.sisyphus
 
 # 数据目录
 data/*

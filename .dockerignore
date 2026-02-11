@@ -1,0 +1,75 @@
+# Python缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 数据和日志（Docker会挂载卷）
+data/
+output_dir/
+logs/
+*.log
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# Git
+.git/
+.gitignore
+
+# 文档
+docs/
+*.md
+CLAUDE.md
+
+# 前端（如果有独立构建）
+frontend/node_modules/
+frontend/dist/
+
+# 临时文件
+*.tmp
+*.bak
+.DS_Store
+
+# 构建产物
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pytest
+.pytest_cache/
+
+# 许可文件（可选）
+LICENSE

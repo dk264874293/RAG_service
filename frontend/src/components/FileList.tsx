@@ -1,9 +1,9 @@
 import { File, FileText, Clock } from 'lucide-react';
-import { MarkdownFile } from '../types';
+import { MarkdownFile, MarkdownContent } from '../types';
 
 interface FileListProps {
   files: MarkdownFile[];
-  currentFile: MarkdownFile | null;
+  currentFile: MarkdownContent | null;
   onFileSelect: (file: MarkdownFile) => void;
   loading: boolean;
 }

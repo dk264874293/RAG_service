@@ -1,0 +1,187 @@
+# RAG服务告警规则
+groups:
+  - name: rag_service_alerts
+    interval: 30s
+    rules:
+      # 服务可用性告警
+      - alert: RAGServiceDown
+        expr: up{job="rag-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: "RAG服务实例宕机"
+          description: "{{ $labels.instance }} RAG服务已宕机超过1分钟"
+
+      # 高错误率告警
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{status=~"5.."}[5m])
+            /
+            rate(http_requests_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "API错误率过高"
+          description: "错误率超过5%，当前值: {{ $value | humanizePercentage }}"
+
+      # 高延迟告警
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "API响应延迟过高"
+          description: "P95延迟超过2秒，当前值: {{ $value }}s"
+
+      # 内存使用告警
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            process_resident_memory_bytes{job="rag-service"}
+            /
+            node_memory_MemTotal_bytes
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "内存使用率过高"
+          description: "内存使用超过80%，当前值: {{ $value | humanizePercentage }}"
+
+      # CPU使用告警
+      - alert: HighCPUUsage
+        expr: |
+          (
+            rate(process_cpu_seconds_total{job="rag-service"}[5m])
+            * 100
+          ) > 80
+        for: 15m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "CPU使用率过高"
+          description: "CPU使用超过80%，当前值: {{ $value }}%"
+
+      # 磁盘空间告警
+      - alert: LowDiskSpace
+        expr: |
+          (
+            (node_filesystem_avail_bytes{mountpoint="/app/data"}
+            /
+            node_filesystem_size_bytes{mountpoint="/app/data"})
+          ) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: storage
+        annotations:
+          summary: "磁盘空间不足"
+          description: "数据目录剩余空间低于10%，当前值: {{ $value | humanizePercentage }}"
+
+      # 检索质量告警
+      - alert: LowRetrievalQuality
+        expr: |
+          (
+            rate(retrieval_relevance_score_bucket{le="0.5"}[10m])
+            /
+            rate(retrieval_relevance_score_count[10m])
+          ) > 0.3
+        for: 15m
+        labels:
+          severity: warning
+          component: retrieval
+        annotations:
+          summary: "检索质量下降"
+          description: "低相关性结果超过30%，请检查向量索引"
+
+  - name: rag_performance_alerts
+    interval: 1m
+    rules:
+      # 上传队列积压
+      - alert: UploadQueueBacklog
+        expr: upload_queue_size > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: upload
+        annotations:
+          summary: "上传队列积压"
+          description: "上传队列积压: {{ $value }} 个文件"
+
+      # OCR处理失败率
+      - alert: HighOCRFailureRate
+        expr: |
+          (
+            rate(ocr_processing_failed_total[10m])
+            /
+            rate(ocr_processing_total[10m])
+          ) > 0.15
+        for: 10m
+        labels:
+          severity: warning
+          component: ocr
+        annotations:
+          summary: "OCR失败率过高"
+          description: "OCR失败率超过15%，当前: {{ $value | humanizePercentage }}"
+
+      # 向量化速度慢
+      - alert: SlowVectorization
+        expr: |
+          rate(document_vectorization_duration_seconds_sum[15m])
+          /
+          rate(document_vectorization_duration_seconds_count[15m]) > 30
+        for: 15m
+        labels:
+          severity: warning
+          component: vectorization
+        annotations:
+          summary: "文档向量化速度慢"
+          description: "平均向量化时间超过30秒"
+
+  - name: rag_business_alerts
+    interval: 1m
+    rules:
+      # 活跃用户数下降
+      - alert: LowActiveUsers
+        expr: |
+          (
+            max_over_time(active_users_total[1h])
+            -
+            active_users_total
+          ) / max_over_time(active_users_total[1h]) > 0.5
+        for: 30m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "活跃用户数大幅下降"
+          description: "活跃用户数下降超过50%"
+
+      # 检索QPS下降
+      - alert: LowSearchQPS
+        expr: |
+          (
+            rate(search_requests_total[5m])
+            <
+            0.5 * max_over_time(rate(search_requests_total[5m])[1h:5m])
+          )
+        for: 20m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "检索QPS异常下降"
+          description: "检索QPS相比1小时前下降超过50%"

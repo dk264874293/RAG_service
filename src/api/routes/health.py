@@ -41,26 +41,27 @@ async def health_check() -> Dict[str, Any]:
 
     # 检查数据库服务
     try:
-        import sqlite3
-        from pathlib import Path
+        from config import settings
+        import pymysql
 
-        db_path = Path("./data/uploads.db")
-        if db_path.exists():
-            conn = sqlite3.connect(str(db_path))
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM uploads")
-            count = cursor.fetchone()[0]
-            conn.close()
+        conn = pymysql.connect(
+            host=settings.mysql_server_host,
+            port=int(settings.mysql_server_port),
+            user=settings.mysql_server_username,
+            password=settings.mysql_server_password,
+            database=settings.mysql_server_database,
+            cursorclass=pymysql.cursors.DictCursor,
+        )
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) as count FROM uploads")
+            result = cursor.fetchone()
+            count = result["count"]
+        conn.close()
 
-            services_status["database"] = {
-                "status": "ok",
-                "upload_records": count,
-            }
-        else:
-            services_status["database"] = {
-                "status": "ok",
-                "upload_records": 0,
-            }
+        services_status["database"] = {
+            "status": "ok",
+            "upload_records": count,
+        }
     except Exception as e:
         services_status["database"] = {
             "status": "error",

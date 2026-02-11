@@ -96,3 +96,27 @@ class RetrievalStrategyFactory:
             logger.info("Auto-registered: ParentChildRetrievalStrategy")
         except ImportError as e:
             logger.warning(f"Failed to import ParentChildRetrievalStrategy: {e}")
+
+        try:
+            from .decomposition_strategy import DecompositionStrategy
+
+            cls.register("decomposition", DecompositionStrategy)
+            logger.info("Auto-registered: DecompositionStrategy")
+        except ImportError as e:
+            logger.warning(f"Failed to import DecompositionStrategy: {e}")
+
+        try:
+            from .hyde_strategy import HyDEStrategy
+
+            cls.register("hyde", HyDEStrategy)
+            logger.info("Auto-registered: HyDEStrategy")
+        except ImportError as e:
+            logger.warning(f"Failed to import HyDEStrategy: {e}")
+
+        try:
+            from .query2doc_strategy import Query2DocStrategy
+
+            cls.register("query2doc", Query2DocStrategy)
+            logger.info("Auto-registered: Query2DocStrategy")
+        except ImportError as e:
+            logger.warning(f"Failed to import Query2DocStrategy: {e}")

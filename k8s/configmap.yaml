@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-config
+  namespace: rag-service
+data:
+  # 数据库配置
+  DATABASE_URL: "mysql+aiomysql://rag_user:rag_password@mysql-service:3306/rag_service"
+
+  # FAISS配置
+  FAISS_INDEX_PATH: "/app/data/faiss_index"
+  FAISS_INDEX_AUTO_SELECT: "true"
+  ENABLE_GENERATIONAL_INDEX: "true"
+  HOT_INDEX_MAX_SIZE: "1000000"
+
+  # 检索优化
+  ENABLE_ENHANCED_RETRIEVAL: "true"
+  ENABLE_BM25: "true"
+  ENABLE_RERANKER_BY_DEFAULT: "true"
+
+  # 存储配置
+  STORAGE_TYPE: "local"
+  UPLOAD_DIR: "/app/data/uploads"
+  PROCESSED_DIR: "/app/output_dir"
+
+  # 日志配置
+  LOG_LEVEL: "INFO"

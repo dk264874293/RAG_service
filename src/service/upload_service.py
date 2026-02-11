@@ -5,47 +5,65 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 import uuid
 import aiofiles
-import sqlite3
+import pymysql
 
 from fastapi import UploadFile
 
 from src.service.document_service import DocumentService
 from src.exceptions import ValidationError
+from src.service.local_storage_adapter import LocalStorageAdapter
 
 logger = logging.getLogger(__name__)
 
 
 class UploadService:
-    def __init__(self, settings_obj, vector_service=None):
+    def __init__(self, settings_obj, vector_service=None, storage_service=None):
         self.settings = settings_obj
         self.upload_dir = Path(settings_obj.upload_dir)
         self.processed_dir = Path("./data/processed")
         self.document_service = DocumentService(settings_obj)
         self.vector_service = vector_service
+        self.storage_service = storage_service
 
-        self.db_path = Path("./data/uploads.db")
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
+    def _get_db_connection(self):
+        """获取 MySQL 数据库连接"""
+        return pymysql.connect(
+            host=self.settings.mysql_server_host,
+            port=int(self.settings.mysql_server_port),
+            user=self.settings.mysql_server_username,
+            password=self.settings.mysql_server_password,
+            database=self.settings.mysql_server_database,
+            cursorclass=pymysql.cursors.DictCursor,
+        )
+
     def _init_db(self):
-        """初始化 SQLite 数据库表"""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS uploads (
-                file_id TEXT PRIMARY KEY,
-                file_name TEXT NOT NULL,
-                file_size INTEGER NOT NULL,
-                file_type TEXT NOT NULL,
-                uploaded_at TEXT NOT NULL,
-                processing_status TEXT NOT NULL,
-                process_message TEXT,
-                content_preview TEXT
-            )
-        """)
-        conn.commit()
-        conn.close()
-        logger.info("SQLite 数据库初始化完成")
+        """初始化 MySQL 数据库表"""
+        conn = self._get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS uploads (
+                        file_id VARCHAR(36) PRIMARY KEY,
+                        file_name VARCHAR(255) NOT NULL,
+                        file_size BIGINT NOT NULL,
+                        file_type VARCHAR(50) NOT NULL,
+                        uploaded_at DATETIME NOT NULL,
+                        processing_status VARCHAR(20) NOT NULL,
+                        process_message TEXT,
+                        content_preview TEXT,
+                        storage_type VARCHAR(20) DEFAULT 'local' COMMENT '存储类型：local或oss',
+                        storage_key VARCHAR(500) DEFAULT NULL COMMENT 'OSS key或本地路径',
+                        file_url TEXT DEFAULT NULL COMMENT '文件访问URL',
+                        INDEX idx_uploaded_at (uploaded_at),
+                        INDEX idx_storage_type (storage_type)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """)
+            conn.commit()
+            logger.info("MySQL 数据库初始化完成")
+        finally:
+            conn.close()
 
     async def validate_file(self, file: UploadFile) -> None:
         if not file.filename:
@@ -75,13 +93,28 @@ class UploadService:
         file_id = str(uuid.uuid4())
         file_ext = Path(file.filename).suffix.lower()
         saved_filename = f"{file_id}{file_ext}"
-        saved_path = self.upload_dir / saved_filename
 
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
+        # 读取文件内容
+        content = await file.read()
 
-        async with aiofiles.open(saved_path, "wb") as f:
-            content = await file.read()
-            await f.write(content)
+        # 使用存储服务保存文件
+        if self.storage_service:
+            file_path = f"uploads/{saved_filename}"
+            result = await self.storage_service.upload_file(
+                file_path, content, metadata={"original_filename": file.filename}
+            )
+            # 修复：对于本地存储，返回绝对路径；对于OSS，返回相对路径（key）
+            if isinstance(self.storage_service, LocalStorageAdapter):
+                saved_path = self.storage_service._resolve_path(file_path)
+            else:
+                # OSS 存储返回的 key
+                saved_path = Path(file_path)
+        else:
+            # 回退到本地文件系统
+            saved_path = self.upload_dir / saved_filename
+            self.upload_dir.mkdir(parents=True, exist_ok=True)
+            async with aiofiles.open(saved_path, "wb") as f:
+                await f.write(content)
 
         return file_id, saved_path
 
@@ -117,6 +150,16 @@ class UploadService:
 
         content_preview = None
         markdown_content = None
+        storage_type = "local"
+        storage_key = str(saved_path)
+        file_url = None
+
+        # 获取存储信息
+        if self.storage_service:
+            storage_type = self.storage_service.get_storage_type()
+            storage_key = str(saved_path)
+            file_url = self.storage_service.get_file_url(f"uploads/{saved_path.name}")
+
         if success and documents:
             content_preview = self.document_service.get_content_preview(
                 documents[0].page_content
@@ -143,6 +186,9 @@ class UploadService:
             success,
             process_msg,
             content_preview,
+            storage_type,
+            storage_key,
+            file_url,
         )
 
         return {
@@ -155,6 +201,9 @@ class UploadService:
             "content_preview": content_preview,
             "markdown_content": markdown_content,
             "documents": documents,
+            "storage_type": storage_type,
+            "storage_key": storage_key,
+            "file_url": file_url,
         }
 
     def add_to_history(
@@ -166,96 +215,157 @@ class UploadService:
         success: bool,
         process_msg: str,
         content_preview: Optional[str] = None,
+        storage_type: str = "local",
+        storage_key: Optional[str] = None,
+        file_url: Optional[str] = None,
     ):
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT OR REPLACE INTO uploads
-            (file_id, file_name, file_size, file_type, uploaded_at, processing_status, process_message, content_preview)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-            (
-                file_id,
-                file_name,
-                file_size,
-                file_type,
-                datetime.now().isoformat(),
-                "success" if success else "failed",
-                process_msg,
-                content_preview,
-            ),
-        )
-        conn.commit()
-        conn.close()
-        logger.debug(f"已添加到上传历史: {file_id}")
+        conn = self._get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # 构建SQL语句，尝试包含新字段（如果列不存在会失败，使用INSERT IGNORE）
+                cursor.execute(
+                    """
+                    INSERT INTO uploads
+                    (file_id, file_name, file_size, file_type, uploaded_at, processing_status, process_message, content_preview, storage_type, storage_key, file_url)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                    file_name = VALUES(file_name),
+                    file_size = VALUES(file_size),
+                    file_type = VALUES(file_type),
+                    uploaded_at = VALUES(uploaded_at),
+                    processing_status = VALUES(processing_status),
+                    process_message = VALUES(process_message),
+                    content_preview = VALUES(content_preview),
+                    storage_type = VALUES(storage_type),
+                    storage_key = VALUES(storage_key),
+                    file_url = VALUES(file_url)
+                """,
+                    (
+                        file_id,
+                        file_name,
+                        file_size,
+                        file_type,
+                        datetime.now(),
+                        "success" if success else "failed",
+                        process_msg,
+                        content_preview,
+                        storage_type,
+                        storage_key,
+                        file_url,
+                    ),
+                )
+            conn.commit()
+            logger.debug(f"已添加到上传历史: {file_id}, storage_type: {storage_type}")
+        except Exception as e:
+            # 如果新字段不存在，回退到旧版本SQL
+            logger.warning(f"Database schema does not support storage fields, using legacy SQL: {e}")
+            conn.rollback()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO uploads
+                        (file_id, file_name, file_size, file_type, uploaded_at, processing_status, process_message, content_preview)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                        file_name = VALUES(file_name),
+                        file_size = VALUES(file_size),
+                        file_type = VALUES(file_type),
+                        uploaded_at = VALUES(uploaded_at),
+                        processing_status = VALUES(processing_status),
+                        process_message = VALUES(process_message),
+                        content_preview = VALUES(content_preview)
+                    """,
+                        (
+                            file_id,
+                            file_name,
+                            file_size,
+                            file_type,
+                            datetime.now(),
+                            "success" if success else "failed",
+                            process_msg,
+                            content_preview,
+                        ),
+                    )
+                conn.commit()
+                logger.debug(f"已添加到上传历史: {file_id}")
+            except Exception as e2:
+                logger.error(f"Failed to add to history: {e2}")
+                conn.rollback()
+        finally:
+            conn.close()
 
     def get_history(self, limit: int = 50) -> List[Dict[str, Any]]:
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT file_id, file_name, file_size, file_type, uploaded_at,
-                   processing_status, process_message, content_preview
-            FROM uploads
-            ORDER BY uploaded_at DESC
-            LIMIT ?
-        """,
-            (limit,),
-        )
-        rows = cursor.fetchall()
-        conn.close()
+        conn = self._get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT file_id, file_name, file_size, file_type, uploaded_at,
+                           processing_status, process_message, content_preview
+                    FROM uploads
+                    ORDER BY uploaded_at DESC
+                    LIMIT %s
+                """,
+                    (limit,),
+                )
+                rows = cursor.fetchall()
+        finally:
+            conn.close()
 
         items = []
         for row in rows:
             items.append(
                 {
-                    "file_id": row[0],
-                    "file_name": row[1],
-                    "file_size": row[2],
-                    "file_type": row[3],
-                    "uploaded_at": row[4],
-                    "processing_status": row[5],
-                    "process_message": row[6],
-                    "content_preview": row[7],
+                    "file_id": row["file_id"],
+                    "file_name": row["file_name"],
+                    "file_size": row["file_size"],
+                    "file_type": row["file_type"],
+                    "uploaded_at": row["uploaded_at"].isoformat(),
+                    "processing_status": row["processing_status"],
+                    "process_message": row["process_message"],
+                    "content_preview": row["content_preview"],
                 }
             )
         return items
 
     def get_total_count(self) -> int:
-        """获取总上传记录数"""
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM uploads")
-        count = cursor.fetchone()[0]
-        conn.close()
-        return count
+        conn = self._get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) as count FROM uploads")
+                result = cursor.fetchone()
+                return result["count"]
+        finally:
+            conn.close()
 
     def get_file_status(self, file_id: str) -> Optional[Dict[str, Any]]:
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT file_id, file_name, file_size, file_type, uploaded_at,
-                   processing_status, process_message, content_preview
-            FROM uploads
-            WHERE file_id = ?
-        """,
-            (file_id,),
-        )
-        row = cursor.fetchone()
-        conn.close()
+        conn = self._get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT file_id, file_name, file_size, file_type, uploaded_at,
+                           processing_status, process_message, content_preview
+                    FROM uploads
+                    WHERE file_id = %s
+                """,
+                    (file_id,),
+                )
+                row = cursor.fetchone()
+        finally:
+            conn.close()
 
         if row:
             return {
-                "file_id": row[0],
-                "file_name": row[1],
-                "file_size": row[2],
-                "file_type": row[3],
-                "uploaded_at": row[4],
-                "processing_status": row[5],
-                "process_message": row[6],
-                "content_preview": row[7],
+                "file_id": row["file_id"],
+                "file_name": row["file_name"],
+                "file_size": row["file_size"],
+                "file_type": row["file_type"],
+                "uploaded_at": row["uploaded_at"].isoformat(),
+                "processing_status": row["processing_status"],
+                "process_message": row["process_message"],
+                "content_preview": row["content_preview"],
             }
         return None
 
@@ -271,27 +381,45 @@ class UploadService:
         return json.loads(content)
 
     async def delete_file(self, file_id: str) -> dict:
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        cursor.execute("SELECT file_name FROM uploads WHERE file_id = ?", (file_id,))
-        row = cursor.fetchone()
-        conn.close()
+        conn = self._get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT file_name FROM uploads WHERE file_id = %s", (file_id,)
+                )
+                row = cursor.fetchone()
+        finally:
+            conn.close()
 
         if not row:
             raise ValueError(f"文件不存在: {file_id}")
 
-        file_name = row[0]
+        file_name = row["file_name"]
 
-        upload_files = list(self.upload_dir.glob(f"{file_id}.*"))
-        for upload_file in upload_files:
-            upload_file.unlink()
-            logger.info(f"已删除原始文件: {upload_file.name}")
+        # 使用存储服务删除文件
+        if self.storage_service:
+            # 尝试删除所有可能的文件扩展名
+            for ext in [".pdf", ".docx", ".doc", ".txt", ".md", ".html", ".pptx", ".xlsx"]:
+                file_path = f"uploads/{file_id}{ext}"
+                try:
+                    await self.storage_service.delete_file(file_path)
+                    logger.info(f"已从存储删除: {file_path}")
+                except Exception as e:
+                    logger.debug(f"删除文件失败（可能不存在）: {file_path}, {e}")
+        else:
+            # 回退到本地文件系统
+            upload_files = list(self.upload_dir.glob(f"{file_id}.*"))
+            for upload_file in upload_files:
+                upload_file.unlink()
+                logger.info(f"已删除原始文件: {upload_file.name}")
 
+        # 删除处理结果
         result_file = self.processed_dir / f"{file_id}.json"
         if result_file.exists():
             result_file.unlink()
             logger.info(f"已删除处理结果: {result_file.name}")
 
+        # 删除向量索引
         deleted_vectors = 0
         if self.vector_service:
             try:
@@ -301,11 +429,14 @@ class UploadService:
             except Exception as e:
                 logger.error(f"删除向量失败: {e}")
 
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM uploads WHERE file_id = ?", (file_id,))
-        conn.commit()
-        conn.close()
+        # 从数据库删除记录
+        conn = self._get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM uploads WHERE file_id = %s", (file_id,))
+            conn.commit()
+        finally:
+            conn.close()
 
         return {
             "status": "success",

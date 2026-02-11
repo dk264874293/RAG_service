@@ -1,21 +1,32 @@
-'''
+"""
 Author: 汪培良 rick_wang@yunquna.com
 Date: 2026-01-06 12:24:17
 LastEditors: 汪培良 rick_wang@yunquna.com
 LastEditTime: 2026-01-06 13:04:29
 FilePath: /RAG_agent/src/models/model.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-'''
+"""
 
 import sqlalchemy as sa
 from flask import request
 from datetime import datetime
+
 # from flask_login import UserMixin
-from sqlalchemy import Float, Index, PrimaryKeyConstraint, String, exists, func, select, text
+from sqlalchemy import (
+    Float,
+    Index,
+    PrimaryKeyConstraint,
+    String,
+    exists,
+    func,
+    select,
+    text,
+)
 from sqlalchemy.orm import Mapped, Session, mapped_column
 from .base import Base
 from .enums import CreatorUserRole
-from .types import LongText, StringUUID
+from .custom_types import LongText, StringUUID
+
 
 class UploadFile(Base):
     __tablename__ = "upload_files"
@@ -38,14 +49,18 @@ class UploadFile(Base):
 
     # The `created_by_role` field indicates whether the file was created by an `Account` or an `EndUser`.
     # Its value is derived from the `CreatorUserRole` enumeration.
-    created_by_role: Mapped[str] = mapped_column(String(255), nullable=False, server_default=sa.text("'account'"))
+    created_by_role: Mapped[str] = mapped_column(
+        String(255), nullable=False, server_default=sa.text("'account'")
+    )
 
     # The `created_by` field stores the ID of the entity that created this upload file.
     #
     # If `created_by_role` is `ACCOUNT`, it corresponds to `Account.id`.
     # Otherwise, it corresponds to `EndUser.id`.
     created_by: Mapped[str] = mapped_column(StringUUID, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, nullable=False, server_default=func.current_timestamp())
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, nullable=False, server_default=func.current_timestamp()
+    )
 
     # The fields `used` and `used_by` are not consistently maintained.
     #
@@ -56,7 +71,9 @@ class UploadFile(Base):
     # 3. Avoid relying on these fields for logic, as their values may not always be accurate.
     #
     # `used` may indicate whether the file has been utilized by another service.
-    used: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("false"))
+    used: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, server_default=sa.text("false")
+    )
 
     # `used_by` may indicate the ID of the user who utilized this file.
     used_by: Mapped[str | None] = mapped_column(StringUUID, nullable=True)
@@ -99,4 +116,3 @@ class UploadFile(Base):
         self.used_at = used_at
         self.hash = hash
         self.source_url = source_url
-

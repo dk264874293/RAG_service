@@ -126,8 +126,6 @@ class PaddleOCRWrapper(BaseOCR):
                 self.engine = PaddleOCR(
                     # 文档方向调整
                     use_doc_orientation_classify=False,
-                    # 文本图像矫正模块
-                    use_doc_unwarping=False,
                     # 文本行方向分类模块
                     use_textline_orientation=False,
                 )
@@ -263,7 +261,7 @@ class PaddleOCRWrapper(BaseOCR):
         """
         try:
             file_data = None
-
+            file_type = 0
             if isinstance(input_data, dict):
                 file_data = input_data.get("file", "")
             elif isinstance(input_data, str):
@@ -274,8 +272,11 @@ class PaddleOCRWrapper(BaseOCR):
                 file_data = base64.b64encode(file_bytes).decode("ascii")
             elif isinstance(input_data, bytes):
                 file_data = base64.b64encode(input_data).decode("ascii")
-                # 修复：bytes 输入默认为图片（fileType=1）
-                # 因为从 PDF 提取的图片是 PNG/JPG 格式
+                # 检测文件类型：PDF 文件以 %PDF- 开头
+                if input_data.startswith(b"%PDF-"):
+                    file_type = 0  # PDF 文件
+                else:
+                    file_type = 1  # 图片文件（PNG、JPG 等）
             else:
                 raise OCRInputError(
                     f"不支持的输入类型: {type(input_data)}。"
@@ -287,24 +288,18 @@ class PaddleOCRWrapper(BaseOCR):
                 "Content-Type": "application/json",
             }
 
-            features = self.config.get(
-                "features",
-                {
-                    "orientation_classify": False,
-                    "unwarping": False,
-                    "chart_recognition": True,
-                    "layout_detection": True,
-                },
-            )
+            # 简化 features 参数，只保留核心功能（避免 422 错误）
+            # 移除 orientation_classify 和 unwarping，关闭 chart_recognition
+            features = {
+                "useChartRecognition": False,  # 关闭图表识别，避免处理复杂页面时报错
+                "useLayoutDetection": True,
+            }
 
             payload = {
                 "file": file_data,
-                "useDocOrientationClassify": features.get(
-                    "orientation_classify", False
-                ),
-                "useDocUnwarping": features.get("unwarping", False),
-                "useChartRecognition": features.get("chart_recognition", True),
-                "useLayoutDetection": features.get("layout_detection", True),
+                "fileType": file_type,
+                "useChartRecognition": features.get("useChartRecognition", False),
+                "useLayoutDetection": features.get("useLayoutDetection", True),
                 **kwargs,
             }
 
@@ -313,12 +308,22 @@ class PaddleOCRWrapper(BaseOCR):
             safe_payload["file"] = f"<{len(payload['file'])} bytes>"
             self.logger.info(f"OCR 识别请求: {safe_payload}")
 
-            timeout = self.engine.get("timeout", 60)
+            # 根据实际上传的 payload 大小计算超时（Base64 编码后增加约 33%）
+            payload_size_mb = (
+                len(payload["file"].encode("ascii")) / (1024 * 1024) / 4 * 3
+            )
+            dynamic_timeout = max(300, int(payload_size_mb * 60))  # 最少 5 分钟
+            timeout = self.engine.get("timeout", dynamic_timeout)
+            self.logger.info(
+                f"动态超时设置: {timeout} 秒（Payload 大小: {payload_size_mb:.2f} MB）"
+            )
+
             response = requests.post(
                 self.engine["api_endpoint"],
                 json=payload,
                 headers=headers,
-                timeout=timeout,
+                timeout=99999999,
+                # timeout=timeout,
             )
 
             response.raise_for_status()

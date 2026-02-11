@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker
 from src.core.security import create_access_token, verify_password, get_password_hash
 from src.core.auth import get_current_user
 import config
-from src.models.user import Base
+from src.models.user import User, Base
 from sqlalchemy.ext.asyncio import create_async_engine
 
 

@@ -17,6 +17,8 @@ from src.api.routes import (
     retrieval_router,
     compliance_router,
     vector_router,
+    storage as storage_router,
+    maintenance as maintenance_router,
 )
 from src.api.routes import auth as auth_router
 from src.middleware.rate_limit import limiter, rate_limit_exceeded_handler
@@ -91,6 +93,8 @@ app.include_router(health_router)
 app.include_router(retrieval_router)
 app.include_router(compliance_router)
 app.include_router(auth_router.router)
+app.include_router(storage_router.router)
+app.include_router(maintenance_router.router)
 
 
 @app.get("/metrics")
